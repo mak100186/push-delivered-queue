@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PushDeliveredQueue.Core;
-using PushDeliveredQueue.Core.Models;
+using PushDeliveredQueue.Sample.Handlers;
 
 namespace PushDeliveredQueue.Sample.Controllers;
 [ApiController]
@@ -28,21 +28,5 @@ public class SubscribaleQueueController(SubscribableQueue queue, SubscribedMessa
         queue.Unsubscribe(subId);
         logger.LogInformation("Unsubscribed ID: {SubId}", subId);
         return Ok();
-    }
-}
-
-public class SubscribedMessageHandler(ILogger<SubscribedMessageHandler> logger)
-{
-    public async Task<DeliveryResult> HandlerAsync(MessageEnvelope msg)
-    {
-        logger.LogInformation("Processing: MessageId:[{MessageId}] Payload:[{Payload}]", msg.Id, msg.Payload);
-        if (msg.Payload.Contains("fail"))
-        {
-            return DeliveryResult.Nack;
-        }
-        await Task.Delay(10); // Simulate work
-
-        logger.LogInformation("Processed: MessageId:[{MessageId}] Payload:[{Payload}]", msg.Id, msg.Payload);
-        return DeliveryResult.Ack;
     }
 }

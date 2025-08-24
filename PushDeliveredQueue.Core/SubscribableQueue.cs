@@ -1,7 +1,9 @@
 ﻿using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Options;
+
 using Polly;
-using Polly.Retry;
+using Polly.Wrap;
 
 using PushDeliveredQueue.Core.Configs;
 using PushDeliveredQueue.Core.Models;
@@ -14,17 +16,39 @@ public class SubscribableQueue : IDisposable
     private readonly ConcurrentDictionary<Guid, CursorState> _subscribers = new();
     private readonly Lock _lock = new();
     private readonly CancellationTokenSource _cts = new();
-    private readonly AsyncRetryPolicy<DeliveryResult> _retryPolicy;
+    private readonly AsyncPolicyWrap<DeliveryResult> _retryPolicy;
     private readonly TimeSpan _ttl;
 
-    public SubscribableQueue(SubscribableQueueOptions options)
+    public SubscribableQueue(IOptions<SubscribableQueueOptions> options)
     {
-        _ttl = options.Ttl;
-        _retryPolicy = Policy
-            .Handle<Exception>().OrResult<DeliveryResult>(r => r == DeliveryResult.Nack)
-            .WaitAndRetryAsync(options.RetryCount, attempt => TimeSpan.FromMilliseconds(options.DelayBetweenRetriesMs * attempt));
+        _ttl = options.Value.Ttl;
+
+        var fallbackPolicy = Policy<DeliveryResult>
+            .Handle<Exception>()
+            .OrResult(r => r == DeliveryResult.Nack)
+            .FallbackAsync(
+                fallbackValue: DeliveryResult.Nack,
+                onFallbackAsync: async (result, context) => await OnFailed(result, context));
+
+        var retryPolicy = Policy<DeliveryResult>
+            .Handle<Exception>()
+            .OrResult(r => r == DeliveryResult.Nack)
+            .WaitAndRetryAsync(2, _ => TimeSpan.FromMilliseconds(50));
+
+        _retryPolicy = Policy.WrapAsync(fallbackPolicy, retryPolicy);
 
         TriggerPruneInBackground();
+    }
+
+
+    //when all retries are exhausted. This should be made configurable:
+    //Option 1: Retry and block
+    //Option 2: Retry and continue
+    private async Task OnFailed(DelegateResult<DeliveryResult> result, Context context)
+    {
+        var subscriberId = Guid.Parse(context["SubscriberId"]?.ToString()!);
+
+        Commit(subscriberId); // or handle based on options
     }
 
     public SubscribableQueueState GetState()
@@ -105,13 +129,17 @@ public class SubscribableQueue : IDisposable
 
             if (next != null)
             {
-                var result = await _retryPolicy.ExecuteAsync(() => cursor.Handler!(next));
+                var context = new Context
+                {
+                    ["SubscriberId"] = subscriberId
+                };
+
+                var result = await _retryPolicy.ExecuteAsync(ctx => cursor.Handler!(next), context);
 
                 if (result == DeliveryResult.Ack)
                 {
                     Commit(subscriberId);
                 }
-                // Nack is retried by Polly
             }
             else
             {
@@ -119,7 +147,6 @@ public class SubscribableQueue : IDisposable
             }
         }
     }
-
 
     private void TriggerPruneInBackground() => Task.Run(PruneExpiredMessages, _cts.Token);
 
