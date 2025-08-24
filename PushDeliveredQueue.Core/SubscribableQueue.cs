@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 
 using Polly;
+using Polly.Retry;
 
 using PushDeliveredQueue.Core.Configs;
 using PushDeliveredQueue.Core.Models;
@@ -13,7 +14,7 @@ public class SubscribableQueue : IDisposable
     private readonly ConcurrentDictionary<Guid, CursorState> _subscribers = new();
     private readonly Lock _lock = new();
     private readonly CancellationTokenSource _cts = new();
-    private readonly IAsyncPolicy<DeliveryResult> _retryPolicy;
+    private readonly AsyncRetryPolicy<DeliveryResult> _retryPolicy;
     private readonly TimeSpan _ttl;
 
     public SubscribableQueue(SubscribableQueueOptions options)
@@ -22,7 +23,10 @@ public class SubscribableQueue : IDisposable
         _retryPolicy = Policy
             .Handle<Exception>().OrResult<DeliveryResult>(r => r == DeliveryResult.Nack)
             .WaitAndRetryAsync(options.RetryCount, attempt => TimeSpan.FromMilliseconds(options.DelayBetweenRetriesMs * attempt));
+
+        TriggerPruneInBackground();
     }
+
     public SubscribableQueueState GetState()
     {
         var state = new SubscribableQueueState();
@@ -47,25 +51,28 @@ public class SubscribableQueue : IDisposable
         return state;
     }
 
-
-    public void Enqueue(string payload)
+    public string Enqueue(string payload)
     {
+        var messageId = Guid.NewGuid();
         lock (_lock)
         {
-            _buffer.Add(new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, payload));
+            _buffer.Add(new MessageEnvelope(messageId, DateTime.UtcNow, payload));
         }
 
-        TriggerPrune();
+        return messageId.ToString();
     }
 
     public Guid Subscribe(MessageHandler handler)
     {
         var id = Guid.NewGuid();
-        var cursor = new CursorState { Handler = handler };
+        var cursor = new CursorState
+        {
+            Handler = handler
+        };
         _subscribers.TryAdd(id, cursor);
 
-        Task.Run(() => DispatchLoop(id, cursor), cursor.Cancellation.Token);
-        TriggerPrune();
+        Task.Run(() => DispatchLoopAsync(id, cursor), CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cursor.Cancellation.Token).Token);
+
         return id;
     }
 
@@ -84,11 +91,9 @@ public class SubscribableQueue : IDisposable
             cursor.IsCommitted = true;
             cursor.Index++;
         }
-
-        TriggerPrune();
     }
 
-    private async Task DispatchLoop(Guid subscriberId, CursorState cursor)
+    private async Task DispatchLoopAsync(Guid subscriberId, CursorState cursor)
     {
         while (!cursor.Cancellation.Token.IsCancellationRequested)
         {
@@ -116,7 +121,7 @@ public class SubscribableQueue : IDisposable
     }
 
 
-    private void TriggerPrune() => Task.Run(PruneExpiredMessages, _cts.Token);
+    private void TriggerPruneInBackground() => Task.Run(PruneExpiredMessages, _cts.Token);
 
     private void PruneExpiredMessages()
     {

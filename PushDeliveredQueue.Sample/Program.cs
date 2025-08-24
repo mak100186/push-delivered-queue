@@ -1,4 +1,5 @@
 using PushDeliveredQueue.AspNetCore.DependencyInjection;
+using PushDeliveredQueue.Sample.Controllers;
 
 using Serilog;
 
@@ -13,6 +14,8 @@ builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddSubscribableQueueWithOptions(builder.Configuration);
+
+builder.Services.AddScoped<SubscribedMessageHandler>();
 
 var app = builder.Build();
 
