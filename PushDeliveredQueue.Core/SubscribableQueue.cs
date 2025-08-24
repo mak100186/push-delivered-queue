@@ -33,7 +33,7 @@ public class SubscribableQueue : IDisposable
         var retryPolicy = Policy<DeliveryResult>
             .Handle<Exception>()
             .OrResult(r => r == DeliveryResult.Nack)
-            .WaitAndRetryAsync(2, _ => TimeSpan.FromMilliseconds(50));
+            .WaitAndRetryAsync(options.Value.RetryCount, _ => TimeSpan.FromMilliseconds(options.Value.DelayBetweenRetriesMs));
 
         _retryPolicy = Policy.WrapAsync(fallbackPolicy, retryPolicy);
 

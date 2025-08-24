@@ -10,7 +10,12 @@ public static class SubscribableQueueOptionsExtensions
 {
     public static IServiceCollection AddSubscribableQueueWithOptions(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<SubscribableQueueOptions>("SubscribableQueue");
+        services
+            .AddOptions<SubscribableQueueOptions>()
+            .Bind(configuration.GetSection("SubscribableQueue"))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<SubscribableQueue>();
 
         return services;

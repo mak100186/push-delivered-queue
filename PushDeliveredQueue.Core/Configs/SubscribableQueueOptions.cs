@@ -1,4 +1,6 @@
-﻿namespace PushDeliveredQueue.Core.Configs;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace PushDeliveredQueue.Core.Configs;
 
 /* Add the following JSON configuration to your appsettings.json file:
  "SubscribableQueue": {
@@ -10,8 +12,11 @@
 
 public class SubscribableQueueOptions
 {
-    public TimeSpan Ttl { get; set; } = TimeSpan.FromSeconds(30);
-    public int RetryCount { get; set; } = 3;
-    public int DelayBetweenRetriesMs { get; set; } = 100;
+    [Required]
+    public TimeSpan Ttl { get; set; }
+    [Range(1, 100)]
+    public int RetryCount { get; set; }
+    [Range(10, 1000)]
+    public int DelayBetweenRetriesMs { get; set; }
 }
 
