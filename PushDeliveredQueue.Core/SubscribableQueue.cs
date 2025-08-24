@@ -178,13 +178,27 @@ public class SubscribableQueue : IDisposable
     {
         if (_cts != null)
         {
-            _cts.Cancel();
-            _cts.Dispose();
+            try
+            {
+                _cts.Cancel();
+                _cts.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed, ignore
+            }
         }
 
         foreach (var sub in _subscribers.Values)
         {
-            sub.Cancellation.Cancel();
+            try
+            {
+                sub.Cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed, ignore
+            }
         }
     }
 }
