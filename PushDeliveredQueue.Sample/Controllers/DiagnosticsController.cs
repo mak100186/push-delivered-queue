@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PushDeliveredQueue.Core;
-using PushDeliveredQueue.Core.Models;
+using PushDeliveredQueue.Sample.Dtos;
+using PushDeliveredQueue.Sample.Extensions;
 
 namespace PushDeliveredQueue.Sample.Controllers;
 
@@ -10,9 +11,10 @@ namespace PushDeliveredQueue.Sample.Controllers;
 public class DiagnosticsController(SubscribableQueue queue) : ControllerBase
 {
     [HttpGet("state")]
-    public ActionResult<SubscribableQueueState> GetQueueState()
+    public ActionResult<SubscribableQueueStateDto> GetQueueState()
     {
         var state = queue.GetState();
-        return Ok(state);
+
+        return Ok(state.ToExternalDto());
     }
 }

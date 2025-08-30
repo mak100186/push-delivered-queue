@@ -15,7 +15,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSubscribableQueueWithOptions(builder.Configuration);
 
-builder.Services.AddSingleton<SubscribedMessageHandler>();
+builder.Services.AddScoped<SubscribedMessageHandler>();
 
 var app = builder.Build();
 

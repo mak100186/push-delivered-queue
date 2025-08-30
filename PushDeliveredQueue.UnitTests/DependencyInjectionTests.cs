@@ -1,11 +1,17 @@
 using FluentAssertions;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+
 using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.Core;
 using PushDeliveredQueue.Core.Configs;
+
 using Xunit;
+
+using static PushDeliveredQueue.UnitTests.TestHelpers;
 
 namespace PushDeliveredQueue.UnitTests;
 
@@ -15,7 +21,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_ShouldRegisterServices()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -30,7 +36,7 @@ public class DependencyInjectionTests
 
         // Assert
         var serviceProvider = services.BuildServiceProvider();
-        
+
         // Should register SubscribableQueueOptions
         var options = serviceProvider.GetService<IOptions<SubscribableQueueOptions>>();
         options.Should().NotBeNull();
@@ -50,7 +56,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithInvalidConfiguration_ShouldThrowOnValidation()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -73,7 +79,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithMissingConfiguration_ShouldNotThrow()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -96,7 +102,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithEmptyConfiguration_ShouldThrowOnValidation()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>())
             .Build();
@@ -114,7 +120,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_ShouldReturnServiceCollection()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -135,7 +141,14 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithValidConfiguration_ShouldValidateOnStart()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
+        services.AddLogging(config =>
+        {
+            config.ClearProviders();
+            config.AddConsole(); // Add other providers as needed
+            config.SetMinimumLevel(LogLevel.Information);
+        });
+
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -150,7 +163,7 @@ public class DependencyInjectionTests
 
         // Assert
         var serviceProvider = services.BuildServiceProvider();
-        
+
         // Should not throw when getting the service (validation passes)
         var queue = serviceProvider.GetService<SubscribableQueue>();
         queue.Should().NotBeNull();
@@ -160,7 +173,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithBoundaryValues_ShouldWorkCorrectly()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -185,7 +198,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithMaximumValues_ShouldWorkCorrectly()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -210,7 +223,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithInvalidTimeSpan_ShouldThrowOnValidation()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -233,7 +246,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_WithInvalidIntegerValues_ShouldThrowOnValidation()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -256,7 +269,7 @@ public class DependencyInjectionTests
     public void AddSubscribableQueueWithOptions_ShouldRegisterOptionsWithDataAnnotationsValidation()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -271,11 +284,11 @@ public class DependencyInjectionTests
 
         // Assert
         var serviceProvider = services.BuildServiceProvider();
-        
+
         // Should be able to get options without validation errors
         var options = serviceProvider.GetService<IOptions<SubscribableQueueOptions>>();
         options.Should().NotBeNull();
-        
+
         // Should be able to get the queue service
         var queue = serviceProvider.GetService<SubscribableQueue>();
         queue.Should().NotBeNull();

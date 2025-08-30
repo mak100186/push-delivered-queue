@@ -1,5 +1,10 @@
 using FluentAssertions;
+
+using Moq;
+
+using PushDeliveredQueue.Core.Abstractions;
 using PushDeliveredQueue.Core.Models;
+
 using Xunit;
 
 namespace PushDeliveredQueue.UnitTests;
@@ -19,7 +24,7 @@ public class ModelTests
 
         // Assert
         envelope.Id.Should().Be(id);
-        envelope.Timestamp.Should().Be(timestamp);
+        envelope.CreatedAt.Should().Be(timestamp);
         envelope.Payload.Should().Be(payload);
     }
 
@@ -50,7 +55,10 @@ public class ModelTests
     public void CursorState_DefaultValues_ShouldBeCorrect()
     {
         // Act
-        var cursor = new CursorState();
+        var cursor = new CursorState()
+        {
+            Handler = null // Handler is required, setting to null for default test
+        };
 
         // Assert
         cursor.Index.Should().Be(0);
@@ -63,20 +71,24 @@ public class ModelTests
     public void CursorState_WithCustomValues_ShouldSetPropertiesCorrectly()
     {
         // Arrange
-        var handler = (MessageHandler)(_ => Task.FromResult(DeliveryResult.Ack));
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
         var cursor = new CursorState
         {
             Index = 5,
             IsCommitted = true,
-            Handler = handler
+            Handler = handler.Object
         };
 
         // Assert
         cursor.Index.Should().Be(5);
         cursor.IsCommitted.Should().BeTrue();
-        cursor.Handler.Should().Be(handler);
+        cursor.Handler.Should().Be(handler.Object);
         cursor.Cancellation.Should().NotBeNull();
     }
 
@@ -153,14 +165,16 @@ public class ModelTests
     {
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
-        MessageHandler handler = message =>
-        {
-            message.Should().Be(envelope);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Callback<MessageEnvelope, Guid>((msg, id) => { msg.Should().Be(envelope); })
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
-        var result = handler(envelope).Result;
+        var result = handler.Object.OnMessageReceiveAsync
+            (envelope, Guid.NewGuid()).Result;
 
         // Assert
         result.Should().Be(DeliveryResult.Ack);
@@ -171,10 +185,14 @@ public class ModelTests
     {
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
-        MessageHandler handler = _ => Task.FromResult(DeliveryResult.Nack);
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(DeliveryResult.Nack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
-        var result = handler(envelope).Result;
+        var result = handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid()).Result;
 
         // Assert
         result.Should().Be(DeliveryResult.Nack);
@@ -185,10 +203,15 @@ public class ModelTests
     {
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
-        MessageHandler handler = _ => throw new InvalidOperationException("Test exception");
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Callback<MessageEnvelope, Guid>((msg, id) => { throw new InvalidOperationException("Test exception"); })
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act & Assert
-        var action = () => handler(envelope).Result;
+        var action = () => handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid()).Result;
         action.Should().Throw<InvalidOperationException>().WithMessage("Test exception");
     }
 
@@ -243,12 +266,12 @@ public class ModelTests
     public void CursorState_Cancellation_ShouldBeUsable()
     {
         // Arrange
-        var cursor = new CursorState();
+        var cursor = new CursorState() { Handler = null };
 
         // Act & Assert
         cursor.Cancellation.Should().NotBeNull();
         cursor.Cancellation.Token.IsCancellationRequested.Should().BeFalse();
-        
+
         cursor.Cancellation.Cancel();
         cursor.Cancellation.Token.IsCancellationRequested.Should().BeTrue();
     }

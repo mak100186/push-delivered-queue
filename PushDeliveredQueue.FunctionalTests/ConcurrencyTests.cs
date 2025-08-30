@@ -2,10 +2,14 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+
 using FluentAssertions;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using PushDeliveredQueue.Core.Models;
+
+using PushDeliveredQueue.Sample.Dtos;
+
 using Xunit;
 
 namespace PushDeliveredQueue.FunctionalTests;
@@ -31,7 +35,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         var tasks = new List<Task<HttpResponseMessage>>();
 
         // Act - Enqueue messages concurrently
-        for (int i = 0; i < messageCount; i++)
+        for (var i = 0; i < messageCount; i++)
         {
             var payload = $"concurrent-message-{i}";
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -42,7 +46,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         responses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
+
         var messageIds = new List<string>();
         foreach (var response in responses)
         {
@@ -62,7 +66,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         var tasks = new List<Task<HttpResponseMessage>>();
 
         // Act - Subscribe concurrently
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             tasks.Add(_client.PostAsync("/SubscribaleQueue/subscribe", null));
         }
@@ -71,7 +75,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         responses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
+
         var subscriberIds = new List<string>();
         foreach (var response in responses)
         {
@@ -94,14 +98,14 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         var subscribeTasks = new List<Task<HttpResponseMessage>>();
 
         // Act - Enqueue messages and subscribe concurrently
-        for (int i = 0; i < messageCount; i++)
+        for (var i = 0; i < messageCount; i++)
         {
             var payload = $"mixed-message-{i}";
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
             enqueueTasks.Add(_client.PostAsync("/SubscribaleQueue/enqueue", content));
         }
 
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             subscribeTasks.Add(_client.PostAsync("/SubscribaleQueue/subscribe", null));
         }
@@ -114,12 +118,12 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Get state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         enqueueResponses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
         subscribeResponses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
+
         state.Should().NotBeNull();
         // The buffer contains all messages that were enqueued during the test run
         state!.Buffer.Should().HaveCountGreaterOrEqualTo(messageCount);
@@ -135,7 +139,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         var tasks = new List<Task>();
 
         // Act - Rapidly subscribe and unsubscribe
-        for (int i = 0; i < operations; i++)
+        for (var i = 0; i < operations; i++)
         {
             tasks.Add(Task.Run(async () =>
             {
@@ -156,7 +160,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Get state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         state.Should().NotBeNull();
@@ -173,7 +177,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Enqueue messages first
         var enqueueTasks = new List<Task<HttpResponseMessage>>();
-        for (int i = 0; i < messageCount; i++)
+        for (var i = 0; i < messageCount; i++)
         {
             var payload = $"bulk-message-{i}";
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -183,7 +187,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Subscribe multiple subscribers
         var subscribeTasks = new List<Task<HttpResponseMessage>>();
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             subscribeTasks.Add(_client.PostAsync("/SubscribaleQueue/subscribe", null));
         }
@@ -194,11 +198,11 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Get state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         subscribeResponses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
+
         state.Should().NotBeNull();
         // The buffer contains all messages that were enqueued during the test run
         state!.Buffer.Should().HaveCountGreaterOrEqualTo(messageCount);
@@ -208,8 +212,8 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         // All subscribers should have processed messages
         foreach (var subscriberState in state.Subscribers.Values)
         {
-            subscriberState.CursorIndex.Should().BeGreaterThan(0);
-            subscriberState.IsCommitted.Should().BeTrue();
+            subscriberState.PendingMessageCount.Should().Be(0); // All retries done
+            subscriberState.IsBlocked.Should().BeFalse();
         }
     }
 
@@ -221,7 +225,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         var tasks = new List<Task<HttpResponseMessage>>();
 
         // Act - Inspect state concurrently
-        for (int i = 0; i < inspectionCount; i++)
+        for (var i = 0; i < inspectionCount; i++)
         {
             tasks.Add(_client.GetAsync("/diagnostics/state"));
         }
@@ -230,17 +234,17 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         responses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
-        var states = new List<SubscribableQueueState>();
+
+        var states = new List<SubscribableQueueStateDto>();
         foreach (var response in responses)
         {
-            var state = await response.Content.ReadFromJsonAsync<SubscribableQueueState>();
+            var state = await response.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
             states.Add(state!);
         }
 
         // All states should be consistent (same buffer count, same subscriber count)
         var firstState = states.First();
-        states.Should().AllSatisfy(s => 
+        states.Should().AllSatisfy(s =>
         {
             s.Buffer.Should().HaveCount(firstState.Buffer.Count);
             s.Subscribers.Should().HaveCount(firstState.Subscribers.Count);
@@ -257,7 +261,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Enqueue messages
         var enqueueTasks = new List<Task<HttpResponseMessage>>();
-        for (int i = 0; i < messageCount; i++)
+        for (var i = 0; i < messageCount; i++)
         {
             var payload = $"stress-message-{i}";
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -267,7 +271,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Subscribe
         var subscribeTasks = new List<Task<HttpResponseMessage>>();
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             subscribeTasks.Add(_client.PostAsync("/SubscribaleQueue/subscribe", null));
         }
@@ -275,7 +279,7 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Concurrent state inspections
         var inspectionTasks = new List<Task<HttpResponseMessage>>();
-        for (int i = 0; i < concurrentOperations; i++)
+        for (var i = 0; i < concurrentOperations; i++)
         {
             inspectionTasks.Add(_client.GetAsync("/diagnostics/state"));
         }
@@ -288,11 +292,11 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
 
         // Final state check
         var finalStateResponse = await _client.GetAsync("/diagnostics/state");
-        var finalState = await finalStateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var finalState = await finalStateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         inspectionResponses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
+
         finalState.Should().NotBeNull();
         // The buffer contains all messages that were enqueued during the test run
         finalState!.Buffer.Should().HaveCountGreaterOrEqualTo(messageCount);
@@ -302,8 +306,8 @@ public class ConcurrencyTests : IClassFixture<TestWebApplicationFactory>
         // All subscribers should have processed all messages
         foreach (var subscriberState in finalState.Subscribers.Values)
         {
-            subscriberState.CursorIndex.Should().BeGreaterThan(0);
-            subscriberState.IsCommitted.Should().BeTrue();
+            subscriberState.PendingMessageCount.Should().Be(0); // All retries done
+            subscriberState.IsBlocked.Should().BeFalse();
         }
     }
 }

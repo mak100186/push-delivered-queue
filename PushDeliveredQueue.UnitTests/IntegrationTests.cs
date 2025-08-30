@@ -1,12 +1,20 @@
 using FluentAssertions;
+
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+
+using Moq;
+
 using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.Core;
+using PushDeliveredQueue.Core.Abstractions;
 using PushDeliveredQueue.Core.Configs;
 using PushDeliveredQueue.Core.Models;
+
 using Xunit;
+
+using static PushDeliveredQueue.UnitTests.TestHelpers;
 
 namespace PushDeliveredQueue.UnitTests;
 
@@ -17,7 +25,7 @@ public class IntegrationTests : IDisposable
 
     public IntegrationTests()
     {
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -54,13 +62,14 @@ public class IntegrationTests : IDisposable
         }
 
         // Subscribe with handler
-        MessageHandler handler = message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                .Callback<MessageEnvelope, Guid>((message, guid) => deliveredMessages.Add(message.Payload))
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = _queue.Subscribe(handler);
+        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act - Wait for all messages to be processed
         await Task.Delay(1000);
@@ -72,7 +81,7 @@ public class IntegrationTests : IDisposable
         var state = _queue.GetState();
         state.Subscribers[subscriberId].CursorIndex.Should().Be(3);
         state.Subscribers[subscriberId].IsCommitted.Should().BeTrue();
-        state.Subscribers[subscriberId].PendingCount.Should().Be(-1); // 3 messages - (3 + 1) = -1
+        state.Subscribers[subscriberId].PendingCount.Should().Be(0); // 3 messages - (3 + 1) = -1, Math.Max(0, -1) = 0
     }
 
     [Fact]
@@ -90,20 +99,22 @@ public class IntegrationTests : IDisposable
         }
 
         // Subscribe two handlers
-        MessageHandler handler1 = message =>
-        {
-            subscriber1Messages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler1 = new Mock<IQueueEventHandler>();
+        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                .Callback<MessageEnvelope, Guid>((message, guid) => subscriber1Messages.Add(message.Payload))
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler1.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        MessageHandler handler2 = message =>
-        {
-            subscriber2Messages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler2 = new Mock<IQueueEventHandler>();
+        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                .Callback<MessageEnvelope, Guid>((message, guid) => subscriber2Messages.Add(message.Payload))
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler2.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriber1 = _queue.Subscribe(handler1);
-        var subscriber2 = _queue.Subscribe(handler2);
+        var subscriber1 = _queue.Subscribe(handler1.Object);
+        var subscriber2 = _queue.Subscribe(handler2.Object);
 
         // Act - Wait for processing
         await Task.Delay(1000);
@@ -127,21 +138,24 @@ public class IntegrationTests : IDisposable
         var deliveredMessages = new List<string>();
         var messageCount = 0;
 
-        MessageHandler handler = message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            messageCount++;
-            
-            // Unsubscribe after receiving first message
-            if (messageCount == 1)
-            {
-                _queue.Unsubscribe(_queue.GetState().Subscribers.Keys.First());
-            }
-            
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                .Callback<MessageEnvelope, Guid>((message, guid) =>
+                {
+                    deliveredMessages.Add(message.Payload);
+                    messageCount++;
 
-        var subscriberId = _queue.Subscribe(handler);
+                    // Unsubscribe after receiving first message
+                    if (messageCount == 1)
+                    {
+                        _queue.Unsubscribe(_queue.GetState().Subscribers.Keys.First());
+                    }
+                })
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+
+        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Enqueue multiple messages
         _queue.Enqueue("message1");
@@ -167,18 +181,22 @@ public class IntegrationTests : IDisposable
         var messagePayload = "retry-test-message";
         _queue.Enqueue(messagePayload);
 
-        MessageHandler handler = message =>
-        {
-            deliveryAttempts++;
-            // Fail first two attempts, succeed on third
-            if (deliveryAttempts < 3)
-            {
-                return Task.FromResult(DeliveryResult.Nack);
-            }
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Returns<MessageEnvelope, Guid>((message, id) =>
+               {
+                   deliveryAttempts++;
+                   // Fail first two attempts, succeed on third
+                   if (deliveryAttempts < 3)
+                   {
+                       return Task.FromResult(DeliveryResult.Nack);
+                   }
+                   return Task.FromResult(DeliveryResult.Ack);
+               });
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = _queue.Subscribe(handler);
+        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act - Wait for retry attempts
         await Task.Delay(2000);
@@ -198,13 +216,18 @@ public class IntegrationTests : IDisposable
         var messagePayload = "exception-test-message";
         _queue.Enqueue(messagePayload);
 
-        MessageHandler handler = message =>
-        {
-            deliveryAttempts++;
-            throw new InvalidOperationException($"Attempt {deliveryAttempts}");
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Callback<MessageEnvelope, Guid>((msg, id) =>
+               {
+                   deliveryAttempts++;
+                   throw new InvalidOperationException($"Attempt {deliveryAttempts}");
+               })
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = _queue.Subscribe(handler);
+        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act - Wait for retry attempts
         await Task.Delay(2000);
@@ -229,21 +252,25 @@ public class IntegrationTests : IDisposable
             _queue.Enqueue(message);
         }
 
-        MessageHandler handler = message =>
-        {
-            attemptCount++;
-            deliveredMessages.Add(message.Payload);
-            
-            // Fail only the "failure" message
-            if (message.Payload == "failure")
-            {
-                return Task.FromResult(DeliveryResult.Nack);
-            }
-            
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Returns<MessageEnvelope, Guid>((message, id) =>
+               {
+                   attemptCount++;
+                   deliveredMessages.Add(message.Payload);
 
-        var subscriberId = _queue.Subscribe(handler);
+                   // Fail only the "failure" message
+                   if (message.Payload == "failure")
+                   {
+                       return Task.FromResult(DeliveryResult.Nack);
+                   }
+
+                   return Task.FromResult(DeliveryResult.Ack);
+               });
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+
+        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act - Wait for processing
         await Task.Delay(3000);
@@ -252,7 +279,7 @@ public class IntegrationTests : IDisposable
         deliveredMessages.Should().Contain("success1");
         deliveredMessages.Should().Contain("success2");
         deliveredMessages.Should().Contain("failure");
-        
+
         // Should have multiple attempts for the failure message
         attemptCount.Should().BeGreaterThan(3);
 
@@ -275,13 +302,17 @@ public class IntegrationTests : IDisposable
 
         // Subscribe and process
         var deliveredMessages = new List<string>();
-        MessageHandler handler = message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Returns<MessageEnvelope, Guid>((message, id) =>
+               {
+                   deliveredMessages.Add(message.Payload);
+                   return Task.FromResult(DeliveryResult.Ack);
+               });
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = _queue.Subscribe(handler);
+        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Wait for partial processing
         await Task.Delay(500);
@@ -302,7 +333,7 @@ public class IntegrationTests : IDisposable
         finalState.Buffer.Should().HaveCount(3);
         finalState.Subscribers.Should().HaveCount(1);
         finalState.Subscribers[subscriberId].CursorIndex.Should().Be(3);
-        finalState.Subscribers[subscriberId].PendingCount.Should().Be(-1); // 3 messages - (3 + 1) = -1
+        finalState.Subscribers[subscriberId].PendingCount.Should().Be(0); // 3 messages - (3 + 1) = -1, Math.Max(0, -1) = 0
     }
 
     [Fact]
@@ -321,18 +352,22 @@ public class IntegrationTests : IDisposable
 
         // Create multiple subscribers
         var subscriberIds = new List<Guid>();
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             var subscriberIndex = i;
             subscriberResults[subscriberIndex] = new List<string>();
 
-            MessageHandler handler = message =>
-            {
-                subscriberResults[subscriberIndex].Add(message.Payload);
-                return Task.FromResult(DeliveryResult.Ack);
-            };
+            var handler = new Mock<IQueueEventHandler>();
+            handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                   .Returns<MessageEnvelope, Guid>((message, id) =>
+                   {
+                       subscriberResults[subscriberIndex].Add(message.Payload);
+                       return Task.FromResult(DeliveryResult.Ack);
+                   });
+            handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                   .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-            var subscriberId = _queue.Subscribe(handler);
+            var subscriberId = _queue.Subscribe(handler.Object);
             subscriberIds.Add(subscriberId);
         }
 
@@ -340,7 +375,7 @@ public class IntegrationTests : IDisposable
         await Task.Delay(2000);
 
         // Assert
-        for (int i = 0; i < subscriberCount; i++)
+        for (var i = 0; i < subscriberCount; i++)
         {
             subscriberResults[i].Should().HaveCount(5);
             subscriberResults[i].Should().BeEquivalentTo(messages);
@@ -351,7 +386,7 @@ public class IntegrationTests : IDisposable
         foreach (var subscriberId in subscriberIds)
         {
             state.Subscribers[subscriberId].CursorIndex.Should().Be(5);
-            state.Subscribers[subscriberId].PendingCount.Should().Be(-1); // 5 messages - (5 + 1) = -1
+            state.Subscribers[subscriberId].PendingCount.Should().Be(0); // 5 messages - (5 + 1) = -1, Math.Max(0, -1) = 0
         }
     }
 
@@ -359,7 +394,7 @@ public class IntegrationTests : IDisposable
     public async Task ServiceProviderIntegration_ShouldWorkCorrectly()
     {
         // Arrange
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -388,13 +423,17 @@ public class IntegrationTests : IDisposable
         messageId.Should().NotBeNullOrEmpty();
 
         var deliveredMessages = new List<string>();
-        MessageHandler handler = message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .Returns<MessageEnvelope, Guid>((message, id) =>
+               {
+                   deliveredMessages.Add(message.Payload);
+                   return Task.FromResult(DeliveryResult.Ack);
+               });
+        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = queue.Subscribe(handler);
+        var subscriberId = queue.Subscribe(handler.Object);
         await Task.Delay(500);
 
         deliveredMessages.Should().HaveCount(1);

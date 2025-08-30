@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+
 using Serilog;
 using Serilog.Extensions.Logging;
-using Xunit;
 
 namespace PushDeliveredQueue.FunctionalTests;
 
@@ -18,7 +17,7 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         {
             // Add test configuration
             config.AddJsonFile("appsettings.test.json", optional: true);
-            
+
             // Add in-memory configuration for testing
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -35,12 +34,12 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
         {
             // Clear default providers
             logging.ClearProviders();
-            
+
             // Add Serilog
             var logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(context.Configuration)
                 .CreateLogger();
-            
+
             logging.AddProvider(new SerilogLoggerProvider(logger));
         });
 

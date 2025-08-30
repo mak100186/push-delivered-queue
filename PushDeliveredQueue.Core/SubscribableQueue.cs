@@ -1,10 +1,12 @@
 ﻿using System.Collections.Concurrent;
 
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using Polly;
 using Polly.Wrap;
 
+using PushDeliveredQueue.Core.Abstractions;
 using PushDeliveredQueue.Core.Configs;
 using PushDeliveredQueue.Core.Models;
 
@@ -18,17 +20,22 @@ public class SubscribableQueue : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly AsyncPolicyWrap<DeliveryResult> _retryPolicy;
     private readonly TimeSpan _ttl;
+    private readonly ILogger<SubscribableQueue> _logger;
+    private const string ContextItemSubscriberId = "SubscriberId";
+    private const string ContextItemCursorState = "CursorState";
+    private const string ContextItemMessage = "Message";
 
-    public SubscribableQueue(IOptions<SubscribableQueueOptions> options)
+    public SubscribableQueue(IOptions<SubscribableQueueOptions> options, ILogger<SubscribableQueue> logger)
     {
         _ttl = options.Value.Ttl;
+        _logger = logger;
 
         var fallbackPolicy = Policy<DeliveryResult>
             .Handle<Exception>()
             .OrResult(r => r == DeliveryResult.Nack)
             .FallbackAsync(
                 fallbackValue: DeliveryResult.Nack,
-                onFallbackAsync: async (result, context) => await OnFailed(result, context));
+                onFallbackAsync: async (result, context) => await OnFailedAsync(result, context));
 
         var retryPolicy = Policy<DeliveryResult>
             .Handle<Exception>()
@@ -37,28 +44,55 @@ public class SubscribableQueue : IDisposable
 
         _retryPolicy = Policy.WrapAsync(fallbackPolicy, retryPolicy);
 
-        TriggerPruneInBackground();
+        Task.Run(() => PruneExpiredMessages(_cts.Token), _cts.Token);
     }
 
-
-    //when all retries are exhausted. This should be made configurable:
-    //Option 1: Retry and block
-    //Option 2: Retry and continue
-    private async Task OnFailed(DelegateResult<DeliveryResult> result, Context context)
+    private async Task OnFailedAsync(DelegateResult<DeliveryResult> result, Context context)
     {
-        var subscriberId = Guid.Parse(context["SubscriberId"]?.ToString()!);
+        var subscriberId = Guid.Parse(context[ContextItemSubscriberId]?.ToString()!);
+        var cursor = (CursorState)context[ContextItemCursorState]!;
+        var message = (MessageEnvelope)context[ContextItemMessage]!;
 
-        Commit(subscriberId); // or handle based on options
+        _logger.LogInformation("Message delivery failed. Invoking OnMessageFailedHandler. {SubscriberId} {@Message}", subscriberId, message);
+
+        var postMessageFailedBehavior = await cursor.Handler.OnMessageFailedHandler(message, subscriberId);
+
+        _logger.LogInformation("OnMessageFailedHandler returned {PostMessageFailedBehavior} for {SubscriberId} {@Message}", postMessageFailedBehavior, subscriberId, message);
+
+        if (postMessageFailedBehavior == PostMessageFailedBehavior.Block)
+        {
+            // Do nothing, effectively blocking further processing
+            return;
+        }
+        if (postMessageFailedBehavior == PostMessageFailedBehavior.RetryOnceThenCommit)
+        {
+            // manually retry once
+            await cursor.Handler.OnMessageReceiveAsync(message, subscriberId);
+
+            // Commit and move on
+            Commit(subscriberId);
+
+            return;
+        }
+        if (postMessageFailedBehavior == PostMessageFailedBehavior.Commit)
+        {
+            // Commit and move on
+            Commit(subscriberId);
+            return;
+        }
     }
 
     public SubscribableQueueState GetState()
     {
-        var state = new SubscribableQueueState();
+        var state = new SubscribableQueueState
+        {
+            Ttl = _ttl
+        };
 
         lock (_lock)
         {
             state.Buffer = _buffer
-                .Select(m => new MessageEnvelope(m.Id, m.Timestamp, m.Payload))
+                .Select(m => new MessageEnvelope(m.Id, m.CreatedAt, m.Payload))
                 .ToList();
         }
 
@@ -68,7 +102,7 @@ public class SubscribableQueue : IDisposable
             {
                 CursorIndex = kvp.Value.Index,
                 IsCommitted = kvp.Value.IsCommitted,
-                PendingCount = state.Buffer.Count - (kvp.Value.Index + 1)
+                PendingCount = Math.Max(state.Buffer.Count - (kvp.Value.Index + 1), 0)
             };
         }
 
@@ -86,18 +120,18 @@ public class SubscribableQueue : IDisposable
         return messageId.ToString();
     }
 
-    public Guid Subscribe(MessageHandler handler)
+    public Guid Subscribe(IQueueEventHandler handler)
     {
-        var id = Guid.NewGuid();
+        var subscriberId = Guid.NewGuid();
         var cursor = new CursorState
         {
             Handler = handler
         };
-        _subscribers.TryAdd(id, cursor);
+        _subscribers.TryAdd(subscriberId, cursor);
 
-        Task.Run(() => DispatchLoopAsync(id, cursor), CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cursor.Cancellation.Token).Token);
+        Task.Run(() => DispatchLoopAsync(subscriberId, cursor), CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, cursor.Cancellation.Token).Token);
 
-        return id;
+        return subscriberId;
     }
 
     public void Unsubscribe(Guid subscriberId)
@@ -114,6 +148,12 @@ public class SubscribableQueue : IDisposable
         {
             cursor.IsCommitted = true;
             cursor.Index++;
+
+            _logger.LogDebug("Subscriber {SubscriberId} committed message at index {Index}", subscriberId, cursor.Index - 1);
+        }
+        else
+        {
+            _logger.LogWarning("Attempted to commit for non-existent subscriber {SubscriberId}", subscriberId);
         }
     }
 
@@ -129,12 +169,16 @@ public class SubscribableQueue : IDisposable
 
             if (next != null)
             {
+                _logger.LogDebug("Dispatching message {MessageId} to subscriber {SubscriberId} at index {Index}", next.Id, subscriberId, cursor.Index);
+
                 var context = new Context
                 {
-                    ["SubscriberId"] = subscriberId
+                    [ContextItemSubscriberId] = subscriberId,
+                    [ContextItemCursorState] = cursor,
+                    [ContextItemMessage] = next
                 };
 
-                var result = await _retryPolicy.ExecuteAsync(ctx => cursor.Handler!(next), context);
+                var result = await _retryPolicy.ExecuteAsync(ctx => cursor.Handler.OnMessageReceiveAsync(next, subscriberId), context);
 
                 if (result == DeliveryResult.Ack)
                 {
@@ -148,34 +192,48 @@ public class SubscribableQueue : IDisposable
         }
     }
 
-    private void TriggerPruneInBackground() => Task.Run(PruneExpiredMessages, _cts.Token);
-
-    private void PruneExpiredMessages()
+    private void PruneExpiredMessages(CancellationToken ct)
     {
-        var cutoff = DateTime.UtcNow - _ttl;
-
-        lock (_lock)
+        while (!ct.IsCancellationRequested)
         {
-            var removedCount = 0;
-
-            while (_buffer.Count > 0 && _buffer[0].Timestamp < cutoff)
+            try
             {
-                _buffer.RemoveAt(0);
-                removedCount++;
-            }
+                var cutoff = DateTime.UtcNow - _ttl;
 
-            if (removedCount > 0)
-            {
-                foreach (var cursor in _subscribers.Values)
+                lock (_lock)
                 {
-                    cursor.Index = Math.Max(0, cursor.Index - removedCount);
+                    var removedCount = 0;
+
+                    while (_buffer.Count > 0 && _buffer[0].CreatedAt < cutoff)
+                    {
+                        _buffer.RemoveAt(0);
+                        removedCount++;
+                    }
+
+                    if (removedCount > 0)
+                    {
+                        foreach (var cursor in _subscribers.Values)
+                        {
+                            cursor.Index = Math.Max(0, cursor.Index - removedCount);
+                        }
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // Graceful exit
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during pruning expired messages.");
             }
         }
     }
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
         if (_cts != null)
         {
             try
@@ -183,7 +241,7 @@ public class SubscribableQueue : IDisposable
                 _cts.Cancel();
                 _cts.Dispose();
             }
-            catch (ObjectDisposedException)
+            catch (Exception)
             {
                 // Already disposed, ignore
             }
@@ -194,8 +252,9 @@ public class SubscribableQueue : IDisposable
             try
             {
                 sub.Cancellation.Cancel();
+                sub.Cancellation.Dispose();
             }
-            catch (ObjectDisposedException)
+            catch (Exception)
             {
                 // Already disposed, ignore
             }

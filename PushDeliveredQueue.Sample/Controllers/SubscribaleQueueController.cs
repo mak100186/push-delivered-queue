@@ -18,7 +18,7 @@ public class SubscribaleQueueController(SubscribableQueue queue, SubscribedMessa
     [HttpPost("subscribe")]
     public IActionResult Subscribe()
     {
-        var subId = queue.Subscribe(handler.HandlerAsync);
+        var subId = queue.Subscribe(handler);
         logger.LogInformation("Subscribed with ID: {SubId}", subId);
         return Ok(subId);
     }

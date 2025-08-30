@@ -2,10 +2,15 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+
 using FluentAssertions;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+
 using PushDeliveredQueue.Core.Models;
+using PushDeliveredQueue.Sample.Dtos;
+
 using Xunit;
 
 namespace PushDeliveredQueue.FunctionalTests;
@@ -138,17 +143,17 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
 
         // Get final state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         state.Should().NotBeNull();
         // The buffer contains all messages that were enqueued during the test run
         state!.Buffer.Should().HaveCountGreaterOrEqualTo(3);
         state.Subscribers.Should().ContainKey(Guid.Parse(subscriberId));
-        
+
         var subscriberState = state.Subscribers[Guid.Parse(subscriberId)];
-        subscriberState.CursorIndex.Should().BeGreaterThan(0); // At least one message processed
-        subscriberState.IsCommitted.Should().BeTrue();
+        subscriberState.PendingMessageCount.Should().Be(0); // At least one message processed
+        subscriberState.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
@@ -156,7 +161,7 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
     {
         // Arrange
         var messages = new[] { "message1", "message2" };
-        
+
         // Enqueue messages
         foreach (var message in messages)
         {
@@ -166,7 +171,7 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
 
         // Subscribe multiple times
         var subscriberIds = new List<string>();
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             var subscribeResponse = await _client.PostAsync("/SubscribaleQueue/subscribe", null);
             var subscriberId = await subscribeResponse.Content.ReadAsStringAsync();
@@ -178,7 +183,7 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
 
         // Get state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         state.Should().NotBeNull();
@@ -186,13 +191,13 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
         state!.Buffer.Should().HaveCountGreaterOrEqualTo(2);
         // Subscribers may have accumulated from previous tests
         state.Subscribers.Should().HaveCountGreaterOrEqualTo(3);
-        
+
         foreach (var subscriberId in subscriberIds)
         {
             state.Subscribers.Should().ContainKey(Guid.Parse(subscriberId));
             var subscriberState = state.Subscribers[Guid.Parse(subscriberId)];
-            subscriberState.CursorIndex.Should().BeGreaterThan(0); // At least one message processed
-            subscriberState.IsCommitted.Should().BeTrue();
+            subscriberState.PendingMessageCount.Should().Be(0); // All messages processed
+            subscriberState.IsBlocked.Should().BeFalse();
         }
     }
 
@@ -214,16 +219,16 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
 
         // Get state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         state.Should().NotBeNull();
         state!.Subscribers.Should().ContainKey(Guid.Parse(subscriberId));
-        
+
         var subscriberState = state.Subscribers[Guid.Parse(subscriberId)];
         // The cursor index depends on how many messages were processed before this test
-        subscriberState.CursorIndex.Should().BeGreaterThan(0); // At least one message processed
-        subscriberState.IsCommitted.Should().BeTrue();
+        subscriberState.PendingMessageCount.Should().Be(0); // Committed after retries
+        subscriberState.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
@@ -231,7 +236,7 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
     {
         // Arrange
         var messages = new[] { "success1", "message that will fail", "success2" };
-        
+
         foreach (var message in messages)
         {
             var content = new StringContent(JsonSerializer.Serialize(message), Encoding.UTF8, "application/json");
@@ -248,17 +253,17 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
 
         // Get state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
 
         // Assert
         state.Should().NotBeNull();
         // The buffer contains all messages that were enqueued during the test run
         state!.Buffer.Should().HaveCountGreaterOrEqualTo(3);
         state.Subscribers.Should().ContainKey(Guid.Parse(subscriberId));
-        
+
         var subscriberState = state.Subscribers[Guid.Parse(subscriberId)];
-        subscriberState.CursorIndex.Should().Be(3); // All messages processed
-        subscriberState.IsCommitted.Should().BeTrue();
+        subscriberState.PendingMessageCount.Should().Be(0); // All messages processed
+        subscriberState.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
@@ -266,7 +271,7 @@ public class QueueApiTests : IClassFixture<TestWebApplicationFactory>
     {
         // Arrange
         var messages = new[] { "message1", "message2", "message3" };
-        
+
         foreach (var message in messages)
         {
             var content = new StringContent(JsonSerializer.Serialize(message), Encoding.UTF8, "application/json");

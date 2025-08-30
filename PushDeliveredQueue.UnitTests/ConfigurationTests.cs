@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+
 using FluentAssertions;
-using Microsoft.Extensions.Options;
+
 using PushDeliveredQueue.Core.Configs;
+
 using Xunit;
 
 namespace PushDeliveredQueue.UnitTests;
@@ -15,7 +17,7 @@ public class ConfigurationTests
         var options = new SubscribableQueueOptions();
 
         // Assert
-        options.Ttl.Should().Be(default(TimeSpan));
+        options.Ttl.Should().Be(default);
         options.RetryCount.Should().Be(0);
         options.DelayBetweenRetriesMs.Should().Be(0);
     }

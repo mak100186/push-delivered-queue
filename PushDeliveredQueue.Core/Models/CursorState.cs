@@ -1,9 +1,11 @@
-﻿namespace PushDeliveredQueue.Core.Models;
+﻿using PushDeliveredQueue.Core.Abstractions;
+
+namespace PushDeliveredQueue.Core.Models;
 
 public class CursorState
 {
-    public int Index { get; set; } = 0;
-    public bool IsCommitted { get; set; } = false;
-    public MessageHandler? Handler { get; set; }
+    public int Index { get; set; }
+    public bool IsCommitted { get; set; }
+    public required IQueueEventHandler Handler { get; set; }
     public CancellationTokenSource Cancellation { get; } = new();
 }

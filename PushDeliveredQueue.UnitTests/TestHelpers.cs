@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.Core.Configs;
-using PushDeliveredQueue.Core.Models;
 
 namespace PushDeliveredQueue.UnitTests;
 
@@ -34,6 +35,18 @@ public static class TestHelpers
             .AddInMemoryCollection(settings)
             .Build();
     }
+    public static ServiceCollection GetServiceCollection()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(config =>
+        {
+            config.ClearProviders();
+            config.AddConsole(); // Add other providers as needed
+            config.SetMinimumLevel(LogLevel.Information);
+        });
+
+        return services;
+    }
 
     public static IConfiguration CreateValidConfiguration()
     {
@@ -47,7 +60,7 @@ public static class TestHelpers
 
     public static IServiceProvider CreateServiceProvider(IConfiguration configuration)
     {
-        var services = new ServiceCollection();
+        var services = GetServiceCollection();
         services.AddSubscribableQueueWithOptions(configuration);
         return services.BuildServiceProvider();
     }
@@ -69,49 +82,5 @@ public static class TestHelpers
     public static async Task WaitForMessageDelivery(int expectedCount, List<string> deliveredMessages, int timeoutMs = 5000)
     {
         await WaitForCondition(() => deliveredMessages.Count >= expectedCount, timeoutMs);
-    }
-
-    public static MessageHandler CreateAckHandler(List<string> deliveredMessages)
-    {
-        return message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Ack);
-        };
-    }
-
-    public static MessageHandler CreateNackHandler(List<string> deliveredMessages)
-    {
-        return message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            return Task.FromResult(DeliveryResult.Nack);
-        };
-    }
-
-    public static MessageHandler CreateExceptionHandler(List<string> deliveredMessages, string exceptionMessage = "Test exception")
-    {
-        return message =>
-        {
-            deliveredMessages.Add(message.Payload);
-            throw new InvalidOperationException(exceptionMessage);
-        };
-    }
-
-    public static MessageHandler CreateRetryHandler(List<string> deliveredMessages, int successAfterAttempts)
-    {
-        var attemptCount = 0;
-        return message =>
-        {
-            attemptCount++;
-            deliveredMessages.Add($"{message.Payload}-attempt-{attemptCount}");
-            
-            if (attemptCount >= successAfterAttempts)
-            {
-                return Task.FromResult(DeliveryResult.Ack);
-            }
-            
-            return Task.FromResult(DeliveryResult.Nack);
-        };
     }
 }

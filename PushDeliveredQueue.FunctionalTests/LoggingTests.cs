@@ -2,10 +2,14 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+
 using FluentAssertions;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using PushDeliveredQueue.Core.Models;
+
+using PushDeliveredQueue.Sample.Dtos;
+
 using Xunit;
 
 namespace PushDeliveredQueue.FunctionalTests;
@@ -34,7 +38,7 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Wait for logs to be written
         await Task.Delay(1000);
 
@@ -52,7 +56,7 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Wait for logs to be written
         await Task.Delay(1000);
 
@@ -73,7 +77,7 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Wait for logs to be written
         await Task.Delay(1000);
     }
@@ -96,17 +100,17 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         subscribeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Verify the message was processed by checking state
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
-        
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
+
         state.Should().NotBeNull();
         state!.Subscribers.Should().ContainKey(Guid.Parse(subscriberId));
-        
+
         var subscriberState = state.Subscribers[Guid.Parse(subscriberId)];
-        subscriberState.CursorIndex.Should().BeGreaterThan(0); // Message processed
-        subscriberState.IsCommitted.Should().BeTrue();
+        subscriberState.PendingMessageCount.Should().Be(0); // Message processed
+        subscriberState.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
@@ -127,17 +131,17 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         subscribeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Verify the message was processed after retries
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
-        
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
+
         state.Should().NotBeNull();
         state!.Subscribers.Should().ContainKey(Guid.Parse(subscriberId));
-        
+
         var subscriberState = state.Subscribers[Guid.Parse(subscriberId)];
-        subscriberState.CursorIndex.Should().BeGreaterThan(0); // At least one message processed
-        subscriberState.IsCommitted.Should().BeTrue();
+        subscriberState.PendingMessageCount.Should().Be(0); // All retries done
+        subscriberState.IsBlocked.Should().BeFalse();
     }
 
     [Fact]
@@ -147,7 +151,7 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
         var operations = new List<Task<HttpResponseMessage>>();
 
         // Enqueue multiple messages
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             var payload = $"multi-log-message-{i}";
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
@@ -165,11 +169,11 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         responses.Should().AllSatisfy(r => r.StatusCode.Should().Be(HttpStatusCode.OK));
-        
+
         // Verify all operations completed successfully
         var stateResponse = await _client.GetAsync("/diagnostics/state");
-        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueState>();
-        
+        var state = await stateResponse.Content.ReadFromJsonAsync<SubscribableQueueStateDto>();
+
         state.Should().NotBeNull();
         // The buffer contains all messages that were enqueued during the test run
         state!.Buffer.Should().HaveCountGreaterOrEqualTo(3);
@@ -182,13 +186,13 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
     {
         // This test verifies that the application starts up correctly and logs are configured
         // The WebApplicationFactory ensures the application is started
-        
+
         // Act - Make a simple request to verify the application is running
         var response = await _client.GetAsync("/diagnostics/state");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // The fact that we can make requests means the application started successfully
         // and logging is configured (otherwise we'd get startup errors)
     }
@@ -204,10 +208,10 @@ public class LoggingTests : IClassFixture<TestWebApplicationFactory>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        
+
         // Wait for any logs to be written
         await Task.Delay(1000);
-        
+
         // The operation should complete without throwing, and any errors should be logged
     }
 }
