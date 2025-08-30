@@ -15,7 +15,8 @@ public static class SubscribableQueueStateExtensions
                 kvp => new SubscriberStateDto()
                 {
                     IsBlocked = !kvp.Value.IsCommitted,
-                    PendingMessageCount = kvp.Value.PendingCount
+                    PendingMessageCount = kvp.Value.PendingCount,
+                    DeadLetterQueue = kvp.Value.DeadLetterQueue.Select(m => new DeadLetterMessagesDto(m.Id, m.Payload)).ToList()
                 })
         };
     }

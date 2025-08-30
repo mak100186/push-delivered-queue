@@ -74,7 +74,7 @@ public class ModelTests
         var handler = new Mock<IQueueEventHandler>();
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -169,7 +169,7 @@ public class ModelTests
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .Callback<MessageEnvelope, Guid>((msg, id) => { msg.Should().Be(envelope); })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -188,7 +188,7 @@ public class ModelTests
         var handler = new Mock<IQueueEventHandler>();
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(DeliveryResult.Nack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -207,7 +207,7 @@ public class ModelTests
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .Callback<MessageEnvelope, Guid>((msg, id) => { throw new InvalidOperationException("Test exception"); })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act & Assert

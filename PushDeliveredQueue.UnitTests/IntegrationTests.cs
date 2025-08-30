@@ -66,7 +66,7 @@ public class IntegrationTests : IDisposable
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                 .Callback<MessageEnvelope, Guid>((message, guid) => deliveredMessages.Add(message.Payload))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -103,14 +103,14 @@ public class IntegrationTests : IDisposable
         handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                 .Callback<MessageEnvelope, Guid>((message, guid) => subscriber1Messages.Add(message.Payload))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler1.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var handler2 = new Mock<IQueueEventHandler>();
         handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                 .Callback<MessageEnvelope, Guid>((message, guid) => subscriber2Messages.Add(message.Payload))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler2.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriber1 = _queue.Subscribe(handler1.Object);
@@ -152,7 +152,7 @@ public class IntegrationTests : IDisposable
                     }
                 })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -193,7 +193,7 @@ public class IntegrationTests : IDisposable
                    }
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -224,7 +224,7 @@ public class IntegrationTests : IDisposable
                    throw new InvalidOperationException($"Attempt {deliveryAttempts}");
                })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -267,7 +267,7 @@ public class IntegrationTests : IDisposable
 
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -309,7 +309,7 @@ public class IntegrationTests : IDisposable
                    deliveredMessages.Add(message.Payload);
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -364,7 +364,7 @@ public class IntegrationTests : IDisposable
                        subscriberResults[subscriberIndex].Add(message.Payload);
                        return Task.FromResult(DeliveryResult.Ack);
                    });
-            handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+            handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                    .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
             var subscriberId = _queue.Subscribe(handler.Object);
@@ -430,7 +430,7 @@ public class IntegrationTests : IDisposable
                    deliveredMessages.Add(message.Payload);
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandler(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = queue.Subscribe(handler.Object);

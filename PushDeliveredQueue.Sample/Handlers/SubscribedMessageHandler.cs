@@ -17,10 +17,17 @@ public class SubscribedMessageHandler(ILogger<SubscribedMessageHandler> logger) 
         return DeliveryResult.Ack;
     }
 
-    public Task<PostMessageFailedBehavior> OnMessageFailedHandler(MessageEnvelope message, Guid subscriberId)
+    public Task<PostMessageFailedBehavior> OnMessageFailedHandlerAsync(MessageEnvelope message, Guid subscriberId)
     {
         logger.LogWarning("Failed: SubscriberId:[{SubscriberId}] MessageId:[{MessageId}] Payload:[{Payload}]", subscriberId, message.Id, message.Payload);
 
-        return Task.FromResult(PostMessageFailedBehavior.Commit);
+        return Task.FromResult(PostMessageFailedBehavior.RetryOnceThenDLQ);
+    }
+
+    public Task<DeliveryResult> OnDeadLetterHandlerAsync(MessageEnvelope message, Guid subscriberId)
+    {
+        logger.LogWarning("DLQ: SubscriberId:[{SubscriberId}] MessageId:[{MessageId}] Payload:[{Payload}]", subscriberId, message.Id, message.Payload);
+
+        return Task.FromResult(DeliveryResult.Ack);
     }
 }

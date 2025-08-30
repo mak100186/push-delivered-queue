@@ -10,6 +10,8 @@ using PushDeliveredQueue.Core.Abstractions;
 using PushDeliveredQueue.Core.Configs;
 using PushDeliveredQueue.Core.Models;
 
+using static PushDeliveredQueue.Core.Constants.SubscribableQueueConstants;
+
 namespace PushDeliveredQueue.Core;
 
 public class SubscribableQueue : IDisposable
@@ -21,9 +23,6 @@ public class SubscribableQueue : IDisposable
     private readonly AsyncPolicyWrap<DeliveryResult> _retryPolicy;
     private readonly TimeSpan _ttl;
     private readonly ILogger<SubscribableQueue> _logger;
-    private const string ContextItemSubscriberId = "SubscriberId";
-    private const string ContextItemCursorState = "CursorState";
-    private const string ContextItemMessage = "Message";
 
     public SubscribableQueue(IOptions<SubscribableQueueOptions> options, ILogger<SubscribableQueue> logger)
     {
@@ -55,30 +54,51 @@ public class SubscribableQueue : IDisposable
 
         _logger.LogInformation("Message delivery failed. Invoking OnMessageFailedHandler. {SubscriberId} {@Message}", subscriberId, message);
 
-        var postMessageFailedBehavior = await cursor.Handler.OnMessageFailedHandler(message, subscriberId);
+        var postMessageFailedBehavior = await cursor.Handler.OnMessageFailedHandlerAsync(message, subscriberId);
 
         _logger.LogInformation("OnMessageFailedHandler returned {PostMessageFailedBehavior} for {SubscriberId} {@Message}", postMessageFailedBehavior, subscriberId, message);
 
-        if (postMessageFailedBehavior == PostMessageFailedBehavior.Block)
+        switch (postMessageFailedBehavior)
         {
-            // Do nothing, effectively blocking further processing
-            return;
-        }
-        if (postMessageFailedBehavior == PostMessageFailedBehavior.RetryOnceThenCommit)
-        {
-            // manually retry once
-            await cursor.Handler.OnMessageReceiveAsync(message, subscriberId);
+            case PostMessageFailedBehavior.AddToDLQ:
+                {
+                    //Add to DLQ
+                    AddToDeadLetterQueue(subscriberId, message);
 
-            // Commit and move on
-            Commit(subscriberId);
+                    // Commit and move on
+                    Commit(subscriberId);
+                }
+                break;
+            case PostMessageFailedBehavior.Commit:
+                {
+                    // Commit and move on
+                    Commit(subscriberId);
+                }
+                break;
+            case PostMessageFailedBehavior.RetryOnceThenCommit:
+                {
+                    // manually retry once
+                    await cursor.Handler.OnMessageReceiveAsync(message, subscriberId);
 
-            return;
-        }
-        if (postMessageFailedBehavior == PostMessageFailedBehavior.Commit)
-        {
-            // Commit and move on
-            Commit(subscriberId);
-            return;
+                    // Commit and move on
+                    Commit(subscriberId);
+                }
+                break;
+            case PostMessageFailedBehavior.RetryOnceThenDLQ:
+                {
+                    // manually retry once
+                    await cursor.Handler.OnMessageReceiveAsync(message, subscriberId);
+
+                    //Add to DLQ
+                    AddToDeadLetterQueue(subscriberId, message);
+
+                    // Commit and move on
+                    Commit(subscriberId);
+                }
+                break;
+            default:
+            case PostMessageFailedBehavior.Block:
+                break;
         }
     }
 
@@ -102,7 +122,10 @@ public class SubscribableQueue : IDisposable
             {
                 CursorIndex = kvp.Value.Index,
                 IsCommitted = kvp.Value.IsCommitted,
-                PendingCount = Math.Max(state.Buffer.Count - (kvp.Value.Index + 1), 0)
+                PendingCount = Math.Max(state.Buffer.Count - (kvp.Value.Index + 1), 0),
+                DeadLetterQueue = kvp.Value.DeadLetterQueue
+                    .Select(m => new MessageEnvelope(m.Id, m.CreatedAt, m.Payload))
+                    .ToList()
             };
         }
 
@@ -139,6 +162,19 @@ public class SubscribableQueue : IDisposable
         if (_subscribers.TryRemove(subscriberId, out var cursor))
         {
             cursor.Cancellation.Cancel();
+        }
+    }
+
+    private void AddToDeadLetterQueue(Guid subscriberId, MessageEnvelope message)
+    {
+        if (_subscribers.TryGetValue(subscriberId, out var cursor))
+        {
+            cursor.DeadLetterQueue.Add(message);
+            _logger.LogDebug("Subscriber {SubscriberId} added message {MessageId} to DLQ", subscriberId, message.Id);
+        }
+        else
+        {
+            _logger.LogWarning("Attempted to add to DLQ for non-existent subscriber {SubscriberId}", subscriberId);
         }
     }
 
