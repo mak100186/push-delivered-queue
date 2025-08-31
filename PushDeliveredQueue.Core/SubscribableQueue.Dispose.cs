@@ -1,6 +1,6 @@
 ﻿namespace PushDeliveredQueue.Core;
 
-public partial class SubscribableQueue :IDisposable
+public partial class SubscribableQueue : IDisposable
 {
     public void Dispose()
     {

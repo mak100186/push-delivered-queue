@@ -19,4 +19,3 @@ public class SubscribableQueueOptions
     [Range(10, 1000)]
     public int DelayBetweenRetriesMs { get; set; }
 }
-

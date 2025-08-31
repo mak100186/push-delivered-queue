@@ -1,5 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 
+using static PushDeliveredQueue.Core.Constants.SubscribableQueueConstants;
+
 namespace PushDeliveredQueue.Core;
 
 public partial class SubscribableQueue
@@ -38,7 +40,7 @@ public partial class SubscribableQueue
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during pruning expired messages.");
+                _logger.LogError(ex, LogErrorDuringPruningExpiredMessages);
             }
         }
     }

@@ -16,11 +16,11 @@ public partial class SubscribableQueue
         var cursor = (CursorState)context[ContextItemCursorState]!;
         var message = (MessageEnvelope)context[ContextItemMessage]!;
 
-        _logger.LogInformation("Message delivery failed. Invoking OnMessageFailedHandler. {SubscriberId} {@Message}", subscriberId, message);
+        _logger.LogInformation(LogMessageDeliveryFailed, subscriberId, message);
 
         var postMessageFailedBehavior = await cursor.Handler.OnMessageFailedHandlerAsync(message, subscriberId, result.Exception, _cts.Token);
 
-        _logger.LogInformation("OnMessageFailedHandler returned {PostMessageFailedBehavior} for {SubscriberId} {@Message}", postMessageFailedBehavior, subscriberId, message);
+        _logger.LogInformation(LogOnMessageFailedHandlerReturned, postMessageFailedBehavior, subscriberId, message);
 
         switch (postMessageFailedBehavior)
         {
@@ -71,11 +71,11 @@ public partial class SubscribableQueue
         if (_subscribers.TryGetValue(subscriberId, out var cursor))
         {
             cursor.DeadLetterQueue.Add(message);
-            _logger.LogDebug("Subscriber {SubscriberId} added message {MessageId} to DLQ", subscriberId, message.Id);
+            _logger.LogDebug(LogSubscriberAddedMessageToDlq, subscriberId, message.Id);
         }
         else
         {
-            _logger.LogWarning("Attempted to add to DLQ for non-existent subscriber {SubscriberId}", subscriberId);
+            _logger.LogWarning(LogAttemptedAddToDlqForNonExistentSubscriber, subscriberId);
         }
     }
 
@@ -86,11 +86,11 @@ public partial class SubscribableQueue
             cursor.IsCommitted = true;
             cursor.Index++;
 
-            _logger.LogDebug("Subscriber {SubscriberId} committed message at index {Index}", subscriberId, cursor.Index - 1);
+            _logger.LogDebug(LogSubscriberCommittedMessage, subscriberId, cursor.Index - 1);
         }
         else
         {
-            _logger.LogWarning("Attempted to commit for non-existent subscriber {SubscriberId}", subscriberId);
+            _logger.LogWarning(LogAttemptedCommitForNonExistentSubscriber, subscriberId);
         }
     }
 
@@ -106,7 +106,7 @@ public partial class SubscribableQueue
 
             if (next != null)
             {
-                _logger.LogDebug("Dispatching message {MessageId} to subscriber {SubscriberId} at index {Index}", next.Id, subscriberId, cursor.Index);
+                _logger.LogDebug(LogDispatchingMessageToSubscriber, next.Id, subscriberId, cursor.Index);
 
                 var context = new Context
                 {

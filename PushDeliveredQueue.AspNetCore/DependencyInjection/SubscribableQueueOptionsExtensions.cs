@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using PushDeliveredQueue.Core;
 using PushDeliveredQueue.Core.Configs;
 
+using static PushDeliveredQueue.Core.Constants.SubscribableQueueConstants;
+
 namespace PushDeliveredQueue.AspNetCore.DependencyInjection;
 
 public static class SubscribableQueueOptionsExtensions
@@ -12,7 +14,7 @@ public static class SubscribableQueueOptionsExtensions
     {
         services
             .AddOptions<SubscribableQueueOptions>()
-            .Bind(configuration.GetSection("SubscribableQueue"))
+            .Bind(configuration.GetSection(ConfigurationSectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 

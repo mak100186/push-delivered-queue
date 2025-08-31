@@ -2,6 +2,8 @@
 
 using PushDeliveredQueue.Core.Models;
 
+using static PushDeliveredQueue.Core.Constants.SubscribableQueueConstants;
+
 namespace PushDeliveredQueue.Core;
 
 public partial class SubscribableQueue
@@ -15,11 +17,11 @@ public partial class SubscribableQueue
             if (message != null)
             {
                 message.ChangePayload(payload);
-                _logger.LogInformation("Message {MessageId} payload changed", messageId);
+                _logger.LogInformation(LogMessagePayloadChanged, messageId);
             }
             else
             {
-                _logger.LogWarning("Message {MessageId} not found for payload change", messageId);
+                _logger.LogWarning(LogMessageNotFoundForPayloadChange, messageId);
             }
         }
     }
@@ -31,7 +33,7 @@ public partial class SubscribableQueue
 
             if (messageFromDlq == null)
             {
-                _logger.LogWarning("Message {MessageId} not found in DLQ for replay by subscriber {SubscriberId}", messageId, subscriberId);
+                _logger.LogWarning(LogMessageNotFoundInDlqForReplay, messageId, subscriberId);
                 return;
             }
 
@@ -44,13 +46,13 @@ public partial class SubscribableQueue
         }
         else
         {
-            _logger.LogWarning("Attempted to replay DLQ for non-existent subscriber {SubscriberId}", subscriberId);
+            _logger.LogWarning(LogNonExistentSubscriberForDlqReplay, subscriberId);
         }
     }
 
     private async Task<bool> ProcessMessageFromDlqAsync(Guid subscriberId, CursorState cursor, MessageEnvelope message, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Replaying message {MessageId} to subscriber {SubscriberId} from dead letter queue", message.Id, subscriberId);
+        _logger.LogInformation(LogSubscriberReplayedDlqMessage, message.Id, subscriberId);
 
         var result = DeliveryResult.Nack;
         Exception? exception = null;
@@ -66,7 +68,7 @@ public partial class SubscribableQueue
 
         if (result == DeliveryResult.Ack)
         {
-            _logger.LogInformation("Subscriber {SubscriberId} successfully processed DLQ message {MessageId}", subscriberId, message.Id);
+            _logger.LogInformation(LogSubscriberProcessedDlqMessage, subscriberId, message.Id);
 
             return true;
         }
@@ -74,7 +76,7 @@ public partial class SubscribableQueue
         {
             await cursor.Handler.OnMessageFailedHandlerAsync(message, subscriberId, exception, cancellationToken);
 
-            _logger.LogInformation("DLQ Message processing failed. Not removing from DLQ {SubscriberId} {@Message}", subscriberId, message);
+            _logger.LogInformation(LogSubscriberDlqProcessingFailed, subscriberId, message);
 
             return false;
         }
@@ -97,16 +99,16 @@ public partial class SubscribableQueue
                         i--; // Adjust index since we removed an item
                     }
                 }
-                _logger.LogInformation("Subscriber {SubscriberId} replayed all DLQ messages", subscriberId);
+                _logger.LogInformation(LogSubscriberReplayedAllDlqMessages, subscriberId);
             }
             else
             {
-                _logger.LogInformation("Subscriber {SubscriberId} has no messages in DLQ to replay", subscriberId);
+                _logger.LogInformation(LogSubscriberNoDlqMessagesToReplay, subscriberId);
             }
         }
         else
         {
-            _logger.LogWarning("Attempted to replay DLQ for non-existent subscriber {SubscriberId}", subscriberId);
+            _logger.LogWarning(LogNonExistentSubscriberForDlqReplay, subscriberId);
         }
     }
 
@@ -124,19 +126,19 @@ public partial class SubscribableQueue
         {
             if (cursor.Index < 0)
             {
-                _logger.LogWarning("Subscriber {SubscriberId} has not started consuming messages yet. Cannot replay.", subscriberId);
+                _logger.LogWarning(LogSubscriberNotStartedConsuming, subscriberId);
                 return;
             }
 
             if (!cursor.IsCommitted)
             {
-                _logger.LogWarning("Subscriber {SubscriberId} has uncommitted messages. Cannot replay.", subscriberId);
+                _logger.LogWarning(LogSubscriberHasUncommittedMessages, subscriberId);
                 return;
             }
 
             if (cursor.Index + 1 < _buffer.Count)
             {
-                _logger.LogWarning("Subscriber {SubscriberId} is at the middle of the buffer. Cannot replay.", subscriberId);
+                _logger.LogWarning(LogSubscriberAtMiddleOfBuffer, subscriberId);
                 return;
             }
 
@@ -150,16 +152,16 @@ public partial class SubscribableQueue
             {
                 cursor.Index = index;
                 cursor.IsCommitted = false;
-                _logger.LogInformation("Subscriber {SubscriberId} replayed from message {MessageId} at index {Index}", subscriberId, messageId, index);
+                _logger.LogInformation(LogSubscriberReplayedFromMessage, subscriberId, messageId, index);
             }
             else
             {
-                _logger.LogWarning("Message {MessageId} not found in buffer for replay by subscriber {SubscriberId}", messageId, subscriberId);
+                _logger.LogWarning(LogMessageNotFoundInBufferForReplay, messageId, subscriberId);
             }
         }
         else
         {
-            _logger.LogWarning("Attempted to replay for non-existent subscriber {SubscriberId}", subscriberId);
+            _logger.LogWarning(LogNonExistentSubscriberForReplay, subscriberId);
         }
     }
 }
