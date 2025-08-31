@@ -137,7 +137,7 @@ public class ProjectLauncher
         _configuration = configuration;
 
         // Create logger factory with Serilog
-        var loggerFactory = LoggerFactory.Create(builder =>
+        using var loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.AddSerilog(dispose: true);
         });

@@ -192,11 +192,25 @@
                                                 <td>
                                                     @if (subscriber.Value.IsBlocked)
                                                     {
-                                                        <span class="badge bg-danger">Blocked</span>
+                                                        @if (subscriber.Value.PendingMessageCount > 0)
+                                                        {
+                                                            <span class="badge bg-danger">Blocked</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-warning">Inactive</span>
+                                                        }
                                                     }
                                                     else
                                                     {
-                                                        <span class="badge bg-success">Active</span>
+                                                        @if (subscriber.Value.PendingMessageCount > 0)
+                                                        {
+                                                            <span class="badge bg-danger">Active</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-warning">Inactive</span>
+                                                        }
                                                     }
                                                 </td>
                                                 <td>@subscriber.Value.PendingMessageCount</td>
