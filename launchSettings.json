@@ -4,7 +4,7 @@
     "PushDeliveredQueue-Complete": {
       "commandName": "Project",
       "launchBrowser": true,
-      "applicationUrl": "https://localhost:5001",
+      "applicationUrl": "https://localhost:7274",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
@@ -13,7 +13,7 @@
     "API-Only": {
       "commandName": "Project",
       "launchBrowser": true,
-      "applicationUrl": "https://localhost:7001",
+      "applicationUrl": "https://localhost:7246",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
@@ -23,7 +23,7 @@
     "UI-Only": {
       "commandName": "Project",
       "launchBrowser": true,
-      "applicationUrl": "https://localhost:5001",
+      "applicationUrl": "https://localhost:7274",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

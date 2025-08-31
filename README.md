@@ -194,8 +194,8 @@ dotnet run
 
 ### Access the Applications
 
-- **API**: https://localhost:7001 (with Swagger documentation)
-- **UI**: https://localhost:5001 (Queue monitoring dashboard)
+- **API**: https://localhost:7246 (with Swagger documentation)
+- **UI**: https://localhost:7274 (Queue monitoring dashboard)
 
 ## ⚙️ Configuration
 
@@ -452,14 +452,14 @@ cd PushDeliveredQueue.Sample
 dotnet run
 
 # Access Swagger UI
-open http://localhost:5000
+open http://localhost:7246
 
 # Run the Blazor UI application
 cd PushDeliveredQueue.UI
 dotnet run
 
 # Access Blazor UI
-open http://localhost:5001
+open http://localhost:7274
 ```
 
 ## 🔧 Performance Considerations

@@ -8,7 +8,7 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        Console.WriteLine("🚀 PushDeliveredQueue Launcher");
+        Console.WriteLine("PushDeliveredQueue Launcher");
         Console.WriteLine("================================");
         Console.WriteLine();
 
@@ -16,11 +16,11 @@ public class Program
         await launcher.StartAllProjectsAsync();
 
         Console.WriteLine();
-        Console.WriteLine("✅ All projects started successfully!");
-        Console.WriteLine("📋 URLs:");
-        Console.WriteLine("   API: https://localhost:7001");
-        Console.WriteLine("   UI:  https://localhost:5001");
-        Console.WriteLine("   Swagger: https://localhost:7001");
+        Console.WriteLine("All projects started successfully!");
+        Console.WriteLine("URLs:");
+        Console.WriteLine("   API: https://localhost:7246");
+        Console.WriteLine("   UI:  https://localhost:7274");
+        Console.WriteLine("   Swagger: https://localhost:7246");
         Console.WriteLine();
         Console.WriteLine("Press Ctrl+C to stop all projects...");
 
@@ -45,13 +45,13 @@ public class ProjectLauncher
         try
         {
             // Start API first
-            await StartProjectAsync("PushDeliveredQueue.Sample", "API", "https://localhost:7001");
+            await StartProjectAsync("PushDeliveredQueue.Sample", "API", "https://localhost:7246");
             
             // Wait for API to be ready
             await Task.Delay(3000);
             
             // Start UI
-            await StartProjectAsync("PushDeliveredQueue.UI", "UI", "https://localhost:5001");
+            await StartProjectAsync("PushDeliveredQueue.UI", "UI", "https://localhost:7274");
         }
         catch (Exception ex)
         {

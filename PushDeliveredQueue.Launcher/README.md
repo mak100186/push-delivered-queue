@@ -12,9 +12,9 @@ dotnet run --project PushDeliveredQueue.Launcher
 ```
 
 This will:
-1. Start the API on `https://localhost:7001`
+1. Start the API on `https://localhost:7246`
 2. Wait 3 seconds for the API to initialize
-3. Start the UI on `https://localhost:5001`
+3. Start the UI on `https://localhost:7274`
 4. Keep the launcher running to manage both processes
 
 ### Option 2: Using PowerShell Script
@@ -42,9 +42,9 @@ launch-both.bat
 
 Once both projects are running:
 
-- **API**: https://localhost:7001
-- **UI**: https://localhost:5001
-- **Swagger Documentation**: https://localhost:7001
+- **API**: https://localhost:7246
+- **UI**: https://localhost:7274
+- **Swagger Documentation**: https://localhost:7246
 
 ## Stopping the Applications
 

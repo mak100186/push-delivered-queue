@@ -19,7 +19,7 @@ public class Program
         builder.Services.AddScoped<SubscribedMessageHandler>();
 
         // Add HTTP client for API communication
-        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7001/";
+        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7246/";
         builder.Services.AddHttpClient<QueueApiService>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
         // Add queue monitoring service

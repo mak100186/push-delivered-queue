@@ -13,7 +13,7 @@ A Blazor Server web application for monitoring and managing the PushDeliveredQue
 ## Prerequisites
 
 - .NET 9.0 SDK
-- The PushDeliveredQueue.Sample API must be running on `https://localhost:7001`
+- The PushDeliveredQueue.Sample API must be running on `https://localhost:7246`
 
 ## Getting Started
 
@@ -29,7 +29,7 @@ A Blazor Server web application for monitoring and managing the PushDeliveredQue
    dotnet run
    ```
 
-3. **Access the UI**: Navigate to `https://localhost:5001` (or the port shown in the console)
+3. **Access the UI**: Navigate to `https://localhost:7274` (or the port shown in the console)
 
 ## Usage
 
@@ -67,7 +67,7 @@ The UI connects to the sample API using the configuration in `appsettings.json`:
 ```json
 {
   "ApiSettings": {
-    "BaseUrl": "https://localhost:7001/"
+    "BaseUrl": "https://localhost:7246/"
   }
 }
 ```
