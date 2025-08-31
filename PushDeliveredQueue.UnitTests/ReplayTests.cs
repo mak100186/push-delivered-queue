@@ -218,7 +218,7 @@ public class ReplayTests : IDisposable
     }
 
     [Fact]
-    public void ReplayFrom_WithValidMessage_ShouldUpdateCursorIndex()
+    public async Task ReplayFrom_WithValidMessage_ShouldUpdateCursorIndex()
     {
         // Arrange
         // Setup handler to process messages BEFORE subscribing
@@ -231,7 +231,7 @@ public class ReplayTests : IDisposable
         var message3 = _queue.Enqueue("message 3");
 
         // Wait for some processing
-        Thread.Sleep(100);
+        await Task.Delay(500);
 
         // Act
         _queue.ReplayFrom(subscriberId, message2);

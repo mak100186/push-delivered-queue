@@ -194,8 +194,6 @@ public class SubscribableQueueTests : IDisposable
     public async Task Subscribe_WithAckHandler_ShouldDeliverMessageAndCommit()
     {
         // Arrange
-        var messagePayload = "test message";
-        var messageId = _queue.Enqueue(messagePayload);
         var deliveredMessages = new List<MessageEnvelope>();
 
         var handler = new Mock<IQueueEventHandler>();
@@ -210,6 +208,9 @@ public class SubscribableQueueTests : IDisposable
 
         // Act
         var subscriberId = _queue.Subscribe(handler.Object);
+        
+        var messagePayload = "test message";
+        var messageId = _queue.Enqueue(messagePayload);
 
         // Wait for message delivery
         await Task.Delay(500);
@@ -228,8 +229,6 @@ public class SubscribableQueueTests : IDisposable
     public async Task Subscribe_WithNackHandler_ShouldRetryAndEventuallyAdvance()
     {
         // Arrange
-        var messagePayload = "test message";
-        _queue.Enqueue(messagePayload);
         var deliveredMessages = new List<MessageEnvelope>();
 
         var handler = new Mock<IQueueEventHandler>();
@@ -244,6 +243,9 @@ public class SubscribableQueueTests : IDisposable
 
         // Act
         var subscriberId = _queue.Subscribe(handler.Object);
+        
+        var messagePayload = "test message";
+        _queue.Enqueue(messagePayload);
 
         // Wait for message delivery attempts
         await Task.Delay(1000);
@@ -260,8 +262,6 @@ public class SubscribableQueueTests : IDisposable
     public async Task Subscribe_WithExceptionThrowingHandler_ShouldRetryAndEventuallyNack()
     {
         // Arrange
-        var messagePayload = "test message";
-        _queue.Enqueue(messagePayload);
         var deliveryAttempts = 0;
 
         var handler = new Mock<IQueueEventHandler>();
@@ -277,6 +277,9 @@ public class SubscribableQueueTests : IDisposable
 
         // Act
         var subscriberId = _queue.Subscribe(handler.Object);
+        
+        var messagePayload = "test message";
+        _queue.Enqueue(messagePayload);
 
         // Wait for retry attempts
         await Task.Delay(1500);
