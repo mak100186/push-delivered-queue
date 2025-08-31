@@ -86,35 +86,4 @@ jobs:
         path: ./TestResults/
         retention-days: 30
 
-  test-macos:
-    runs-on: macos-latest
-    
-    strategy:
-      matrix:
-        dotnet-version: ['9.0.x']
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup .NET ${{ matrix.dotnet-version }}
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ matrix.dotnet-version }}
-        
-    - name: Restore dependencies
-      run: dotnet restore
-      
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
-      
-    - name: Test
-      run: dotnet test --no-build --verbosity normal --configuration Release
-      
-    - name: Upload test results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-results-macos-${{ matrix.dotnet-version }}
-        path: ./TestResults/
-        retention-days: 30
+

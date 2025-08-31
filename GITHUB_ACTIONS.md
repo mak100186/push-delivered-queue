@@ -17,13 +17,13 @@ This project includes several GitHub Actions workflows to automate testing and C
 ### 2. Test (`test.yml`)
 **Purpose**: Comprehensive testing across multiple platforms with coverage
 - **Triggers**: Push to main/develop, Pull Requests
-- **Runs**: Ubuntu, Windows, macOS
+- **Runs**: Ubuntu, Windows
 - **Features**:
   - Cross-platform testing
   - Code coverage reporting
   - Test result artifacts
   - Coverage report generation
-- **Duration**: ~8-10 minutes
+- **Duration**: ~6-8 minutes
 
 ### 3. Functional Tests (`functional-tests.yml`)
 **Purpose**: Dedicated workflow for functional tests
