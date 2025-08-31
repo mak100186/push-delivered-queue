@@ -59,8 +59,8 @@ public class SubscribableQueueTests : IDisposable
         var messageId = _queue.Enqueue(payload);
 
         // Assert
-        messageId.Should().NotBeNullOrEmpty();
-        Guid.TryParse(messageId, out _).Should().BeTrue();
+        messageId.Should().NotBeEmpty();
+        Guid.TryParse(messageId.ToString(), out _).Should().BeTrue();
     }
 
     [Fact]

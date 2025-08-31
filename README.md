@@ -6,11 +6,15 @@ A reactive push-based message queue system built for .NET 9.0, designed for real
 
 - **Push-Based Delivery**: Messages are actively pushed to subscribers rather than pulled
 - **Multiple Subscribers**: Support for multiple concurrent subscribers with independent cursors
+- **Dead Letter Queue (DLQ)**: Automatic handling of failed messages with configurable failure behaviors
+- **Message Replay**: Replay messages from DLQ or specific buffer positions
+- **Message Payload Modification**: Change message payloads at runtime
 - **Automatic Retry**: Configurable retry policies with exponential backoff using Polly
 - **Message TTL**: Automatic cleanup of expired messages to prevent memory leaks
 - **Ack/Nack Support**: Explicit message acknowledgment for reliable delivery
 - **ASP.NET Core Integration**: Seamless integration with dependency injection
-- **Comprehensive Testing**: Full unit and functional test coverage
+- **Blazor UI**: Web-based management interface for queue operations
+- **Comprehensive Testing**: Full unit, functional, and UI test coverage
 - **Real-time Processing**: Low-latency message delivery with background processing
 
 ## 📋 Table of Contents
@@ -34,6 +38,7 @@ A reactive push-based message queue system built for .NET 9.0, designed for real
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
 │  │ Subscriber1 │  │ Subscriber2 │  │ SubscriberN │          │
 │  │ (Cursor)    │  │ (Cursor)    │  │ (Cursor)    │          │
+│  │ + DLQ       │  │ + DLQ       │  │ + DLQ       │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘          │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────────┐│
@@ -42,7 +47,7 @@ A reactive push-based message queue system built for .NET 9.0, designed for real
 │  └─────────────────────────────────────────────────────────┘│
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │   Retry     │  │     TTL     │  │   Pruning   │          │
+│  │   Retry     │  │     TTL     │  │   Replay    │          │
 │  │   Policy    │  │  Cleanup    │  │   Service   │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘          │
 └─────────────────────────────────────────────────────────────┘
@@ -53,8 +58,10 @@ A reactive push-based message queue system built for .NET 9.0, designed for real
 - **`PushDeliveredQueue.Core`**: Core queue implementation and models
 - **`PushDeliveredQueue.AspNetCore`**: ASP.NET Core integration and DI extensions
 - **`PushDeliveredQueue.Sample`**: Example web application with API endpoints
+- **`PushDeliveredQueue.UI`**: Blazor Server UI for queue management
 - **`PushDeliveredQueue.UnitTests`**: Comprehensive unit test suite
 - **`PushDeliveredQueue.FunctionalTests`**: End-to-end functional tests
+- **`PushDeliveredQueue.UI.Tests`**: UI component tests using bUnit
 
 ## 🚀 Quick Start
 
@@ -92,9 +99,9 @@ builder.Services.AddSubscribableQueueWithOptions(builder.Configuration);
 ### 4. Create a Message Handler
 
 ```csharp
-public class MyMessageHandler
+public class MyMessageHandler : IQueueEventHandler
 {
-    public async Task<DeliveryResult> HandleMessageAsync(MessageEnvelope message)
+    public async Task<DeliveryResult> OnMessageReceiveAsync(MessageEnvelope message, Guid subscriberId, CancellationToken cancellationToken)
     {
         try
         {
@@ -106,6 +113,18 @@ public class MyMessageHandler
         {
             return DeliveryResult.Nack; // Negative acknowledgment for retry
         }
+    }
+
+    public async Task<PostMessageFailedBehavior> OnMessageFailedHandlerAsync(MessageEnvelope message, Guid subscriberId, Exception? exception, CancellationToken cancellationToken)
+    {
+        // Handle failed message processing
+        return PostMessageFailedBehavior.AddToDLQ; // Add to dead letter queue
+    }
+
+    public async Task<DeliveryResult> OnDeadLetterHandlerAsync(MessageEnvelope message, Guid subscriberId, CancellationToken cancellationToken)
+    {
+        // Handle dead letter queue messages
+        return DeliveryResult.Ack; // Acknowledge to remove from DLQ
     }
 }
 ```
@@ -134,7 +153,7 @@ public class MessageController : ControllerBase
     [HttpPost("subscribe")]
     public IActionResult Subscribe()
     {
-        var subscriberId = _queue.Subscribe(_handler.HandleMessageAsync);
+        var subscriberId = _queue.Subscribe(_handler);
         return Ok(subscriberId);
     }
 }
@@ -188,16 +207,36 @@ public class SubscribableQueue
 
 ```csharp
 // Message envelope containing payload and metadata
-public record MessageEnvelope(Guid Id, DateTime Timestamp, string Payload);
+public class MessageEnvelope(Guid id, DateTime createdAt, string payload)
+{
+    public Guid Id { get; init; } = id;
+    public DateTime CreatedAt { get; init; } = createdAt;
+    public string Payload { get; set; } = payload;
+}
 
-// Message processing delegate
-public delegate Task<DeliveryResult> MessageHandler(MessageEnvelope message);
+// Queue event handler interface
+public interface IQueueEventHandler
+{
+    Task<DeliveryResult> OnMessageReceiveAsync(MessageEnvelope message, Guid subscriberId, CancellationToken cancellationToken);
+    Task<PostMessageFailedBehavior> OnMessageFailedHandlerAsync(MessageEnvelope message, Guid subscriberId, Exception? exception, CancellationToken cancellationToken);
+    Task<DeliveryResult> OnDeadLetterHandlerAsync(MessageEnvelope message, Guid subscriberId, CancellationToken cancellationToken);
+}
 
 // Delivery acknowledgment result
 public enum DeliveryResult
 {
     Ack,   // Acknowledge successful processing
     Nack   // Negative acknowledgment (retry)
+}
+
+// Post-message failure behavior
+public enum PostMessageFailedBehavior
+{
+    RetryOnceThenCommit, // Will retry once immediately and then commit the message
+    RetryOnceThenDLQ,    // Will retry once immediately and then add to DLQ
+    AddToDLQ,            // Will add to DLQ directly
+    Commit,              // Will commit and move on
+    Block                // Will block processing
 }
 ```
 
@@ -209,6 +248,7 @@ public class SubscribableQueueState
 {
     public List<MessageEnvelope> Buffer { get; set; } = [];
     public Dictionary<Guid, SubscriberState> Subscribers { get; set; } = [];
+    public TimeSpan Ttl { get; set; }
 }
 
 // Individual subscriber state
@@ -217,6 +257,7 @@ public class SubscriberState
     public int CursorIndex { get; set; }
     public bool IsCommitted { get; set; }
     public int PendingCount { get; set; }
+    public List<MessageEnvelope> DeadLetterQueue { get; set; } = [];
 }
 ```
 
@@ -236,12 +277,8 @@ var options = new SubscribableQueueOptions
 var queue = new SubscribableQueue(Options.Create(options));
 
 // Subscribe to messages
-var subscriberId = queue.Subscribe(async (message) =>
-{
-    Console.WriteLine($"Processing: {message.Payload}");
-    await ProcessMessage(message.Payload);
-    return DeliveryResult.Ack;
-});
+var handler = new MyMessageHandler();
+var subscriberId = queue.Subscribe(handler);
 
 // Enqueue messages
 var messageId = queue.Enqueue("Hello, World!");
@@ -256,55 +293,86 @@ Console.WriteLine($"Active subscribers: {state.Subscribers.Count}");
 
 ```csharp
 // Create multiple subscribers for different processing needs
-var emailSubscriber = queue.Subscribe(async (message) =>
-{
-    if (message.Payload.Contains("email"))
-    {
-        await SendEmail(message.Payload);
-        return DeliveryResult.Ack;
-    }
-    return DeliveryResult.Nack; // Skip non-email messages
-});
+var emailHandler = new EmailMessageHandler();
+var smsHandler = new SmsMessageHandler();
 
-var smsSubscriber = queue.Subscribe(async (message) =>
-{
-    if (message.Payload.Contains("sms"))
-    {
-        await SendSms(message.Payload);
-        return DeliveryResult.Ack;
-    }
-    return DeliveryResult.Nack; // Skip non-sms messages
-});
+var emailSubscriber = queue.Subscribe(emailHandler);
+var smsSubscriber = queue.Subscribe(smsHandler);
 
 // Enqueue messages for different channels
 queue.Enqueue("email:user@example.com:Welcome!");
 queue.Enqueue("sms:+1234567890:Your code is 123456");
 ```
 
+### Replay and Dead Letter Queue Management
+
+```csharp
+// Replay a specific message from DLQ
+await queue.ReplayFromDlqAsync(subscriberId, messageId, CancellationToken.None);
+
+// Replay all messages in DLQ for a subscriber
+await queue.ReplayAllDlqMessagesAsync(subscriberId, CancellationToken.None);
+
+// Replay all DLQ messages for all subscribers
+queue.ReplayAllDlqSubscribers(CancellationToken.None);
+
+// Replay from a specific message in the buffer
+queue.ReplayFrom(subscriberId, messageId);
+
+// Change message payload
+queue.ChangeMessagePayload(messageId, "updated payload", CancellationToken.None);
+```
+
 ### Error Handling and Retry
 
 ```csharp
-var subscriberId = queue.Subscribe(async (message) =>
+public class RobustMessageHandler : IQueueEventHandler
 {
-    try
+    private readonly ILogger<RobustMessageHandler> _logger;
+
+    public RobustMessageHandler(ILogger<RobustMessageHandler> logger)
     {
-        // Attempt to process the message
-        await ProcessWithExternalService(message.Payload);
-        return DeliveryResult.Ack;
+        _logger = logger;
     }
-    catch (TemporaryException ex)
+
+    public async Task<DeliveryResult> OnMessageReceiveAsync(MessageEnvelope message, Guid subscriberId, CancellationToken cancellationToken)
     {
-        // Log the error for retry
-        _logger.LogWarning(ex, "Temporary failure, will retry");
-        return DeliveryResult.Nack; // Will be retried
+        try
+        {
+            // Attempt to process the message
+            await ProcessWithExternalService(message.Payload);
+            return DeliveryResult.Ack;
+        }
+        catch (TemporaryException ex)
+        {
+            // Log the error for retry
+            _logger.LogWarning(ex, "Temporary failure, will retry");
+            return DeliveryResult.Nack; // Will be retried
+        }
+        catch (PermanentException ex)
+        {
+            // Log the error and don't retry
+            _logger.LogError(ex, "Permanent failure, skipping");
+            return DeliveryResult.Ack; // Acknowledge to prevent retries
+        }
     }
-    catch (PermanentException ex)
+
+    public async Task<PostMessageFailedBehavior> OnMessageFailedHandlerAsync(MessageEnvelope message, Guid subscriberId, Exception? exception, CancellationToken cancellationToken)
     {
-        // Log the error and don't retry
-        _logger.LogError(ex, "Permanent failure, skipping");
-        return DeliveryResult.Ack; // Acknowledge to prevent retries
+        if (exception is TemporaryException)
+        {
+            return PostMessageFailedBehavior.RetryOnceThenDLQ;
+        }
+        return PostMessageFailedBehavior.AddToDLQ;
     }
-});
+
+    public async Task<DeliveryResult> OnDeadLetterHandlerAsync(MessageEnvelope message, Guid subscriberId, CancellationToken cancellationToken)
+    {
+        // Handle dead letter queue messages
+        _logger.LogWarning("Message {MessageId} in DLQ for subscriber {SubscriberId}", message.Id, subscriberId);
+        return DeliveryResult.Ack; // Remove from DLQ
+    }
+}
 ```
 
 ## 🧪 Testing
@@ -321,28 +389,39 @@ dotnet test PushDeliveredQueue.UnitTests
 # Run functional tests only
 dotnet test PushDeliveredQueue.FunctionalTests
 
+# Run UI tests only
+dotnet test PushDeliveredQueue.UI.Tests
+
 # Run with coverage
 dotnet test --collect:"XPlat Code Coverage"
 ```
 
 ### Test Categories
 
-- **Unit Tests**: Core functionality, configuration, DI integration
+- **Unit Tests**: Core functionality, configuration, DI integration, replay functionality, TTL/pruning, error handling
 - **Functional Tests**: End-to-end API testing with TestContainers
+- **UI Tests**: Blazor component testing using bUnit
 - **Concurrency Tests**: Multi-threaded scenarios and stress testing
 - **Integration Tests**: Complete message lifecycle testing
 
-### Sample Application
+### Sample Applications
 
-The `PushDeliveredQueue.Sample` project provides a complete working example:
+The project provides multiple sample applications:
 
 ```bash
-# Run the sample application
+# Run the API sample application
 cd PushDeliveredQueue.Sample
 dotnet run
 
 # Access Swagger UI
 open http://localhost:5000
+
+# Run the Blazor UI application
+cd PushDeliveredQueue.UI
+dotnet run
+
+# Access Blazor UI
+open http://localhost:5001
 ```
 
 ## 🔧 Performance Considerations
