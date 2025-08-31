@@ -1,4 +1,4 @@
-name: Integration Tests
+name: Unit Tests
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  integration-tests-ubuntu:
+  unit-tests-ubuntu:
     runs-on: ubuntu-latest
     
     strategy:
@@ -29,31 +29,31 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
       
-    - name: Run Integration Tests
-      run: dotnet test --no-build --verbosity normal --configuration Release --collect:"XPlat Code Coverage" --results-directory ./integration-coverage-results/
+    - name: Run Unit Tests
+      run: dotnet test PushDeliveredQueue.UnitTests --no-build --verbosity normal --configuration Release --collect:"XPlat Code Coverage" --results-directory ./coverage-results/
       
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: integration-test-results-ubuntu-${{ matrix.dotnet-version }}
-        path: ./integration-coverage-results/
+        name: unit-test-results-ubuntu-${{ matrix.dotnet-version }}
+        path: ./coverage-results/
         retention-days: 30
         
     - name: Generate coverage report
       run: |
         dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator -reports:./integration-coverage-results/**/coverage.cobertura.xml -targetdir:./integration-coverage-report -reporttypes:HtmlInline_AzurePipelines;Cobertura
+        reportgenerator -reports:./coverage-results/**/coverage.cobertura.xml -targetdir:./coverage-report -reporttypes:HtmlInline_AzurePipelines;Cobertura
         
     - name: Upload coverage report
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: integration-coverage-report-ubuntu-${{ matrix.dotnet-version }}
-        path: ./integration-coverage-report/
+        name: unit-test-coverage-ubuntu-${{ matrix.dotnet-version }}
+        path: ./coverage-report/
         retention-days: 30
 
-  integration-tests-windows:
+  unit-tests-windows:
     runs-on: windows-latest
     
     strategy:
@@ -75,15 +75,13 @@ jobs:
     - name: Build
       run: dotnet build --no-restore --configuration Release
       
-    - name: Run Integration Tests
-      run: dotnet test --no-build --verbosity normal --configuration Release
+    - name: Run Unit Tests
+      run: dotnet test PushDeliveredQueue.UnitTests --no-build --verbosity normal --configuration Release
       
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: integration-test-results-windows-${{ matrix.dotnet-version }}
+        name: unit-test-results-windows-${{ matrix.dotnet-version }}
         path: ./TestResults/
         retention-days: 30
-
-

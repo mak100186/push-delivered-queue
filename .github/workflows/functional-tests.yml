@@ -8,7 +8,7 @@ on:
   workflow_dispatch: # Allow manual triggering
 
 jobs:
-  functional-tests:
+  functional-tests-ubuntu:
     runs-on: ubuntu-latest
     timeout-minutes: 10 # Longer timeout for functional tests
     
@@ -28,12 +28,25 @@ jobs:
       run: dotnet build --no-restore --configuration Release
       
     - name: Run Functional Tests
-      run: dotnet test PushDeliveredQueue.FunctionalTests --no-build --verbosity normal --configuration Release --logger "console;verbosity=detailed"
+      run: dotnet test PushDeliveredQueue.FunctionalTests --no-build --verbosity normal --configuration Release --logger "console;verbosity=detailed" --collect:"XPlat Code Coverage" --results-directory ./functional-coverage-results/
       
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: functional-test-results
-        path: ./TestResults/
+        name: functional-test-results-ubuntu
+        path: ./functional-coverage-results/
+        retention-days: 30
+        
+    - name: Generate functional coverage report
+      run: |
+        dotnet tool install -g dotnet-reportgenerator-globaltool
+        reportgenerator -reports:./functional-coverage-results/**/coverage.cobertura.xml -targetdir:./functional-coverage-report -reporttypes:HtmlInline_AzurePipelines;Cobertura
+        
+    - name: Upload functional coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: functional-coverage-report-ubuntu
+        path: ./functional-coverage-report/
         retention-days: 30
