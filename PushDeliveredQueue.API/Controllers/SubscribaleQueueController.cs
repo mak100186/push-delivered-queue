@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PushDeliveredQueue.Core;
-using PushDeliveredQueue.Sample.Handlers;
+using PushDeliveredQueue.API.Handlers;
 
-namespace PushDeliveredQueue.Sample.Controllers;
+namespace PushDeliveredQueue.API.Controllers;
 [ApiController]
 [Route("[controller]")]
 public class SubscribaleQueueController(SubscribableQueue queue, SubscribedMessageHandler handler, ILogger<SubscribaleQueueController> logger) : ControllerBase

@@ -1,4 +1,4 @@
-namespace PushDeliveredQueue.Sample.Dtos;
+namespace PushDeliveredQueue.API.Dtos;
 
 public class SubscribableQueueStateDto
 {

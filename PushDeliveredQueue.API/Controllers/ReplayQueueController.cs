@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using PushDeliveredQueue.Core;
 
-namespace PushDeliveredQueue.Sample.Controllers;
+namespace PushDeliveredQueue.API.Controllers;
 
 [ApiController]
 [Route("[controller]")]

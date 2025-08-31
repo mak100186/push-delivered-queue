@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PushDeliveredQueue.Core;
-using PushDeliveredQueue.Sample.Dtos;
-using PushDeliveredQueue.Sample.Extensions;
+using PushDeliveredQueue.API.Dtos;
+using PushDeliveredQueue.API.Extensions;
 
-namespace PushDeliveredQueue.Sample.Controllers;
+namespace PushDeliveredQueue.API.Controllers;
 
 [ApiController]
 [Route("diagnostics")]

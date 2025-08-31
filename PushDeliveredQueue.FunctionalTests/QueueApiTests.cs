@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using PushDeliveredQueue.Core.Models;
-using PushDeliveredQueue.Sample.Dtos;
+using PushDeliveredQueue.API.Dtos;
 
 using Xunit;
 

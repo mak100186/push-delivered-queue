@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushDeliveredQueue.Core", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushDeliveredQueue.AspNetCore", "PushDeliveredQueue.AspNetCore\PushDeliveredQueue.AspNetCore.csproj", "{FD161139-8E8B-4F12-8E35-187664F29B6C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushDeliveredQueue.Sample", "PushDeliveredQueue.Sample\PushDeliveredQueue.Sample.csproj", "{9F62E96B-F403-41CA-A4B7-0F1A4D574E94}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushDeliveredQueue.API", "PushDeliveredQueue.API\PushDeliveredQueue.API.csproj", "{9F62E96B-F403-41CA-A4B7-0F1A4D574E94}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PushDeliveredQueue.UnitTests", "PushDeliveredQueue.UnitTests\PushDeliveredQueue.UnitTests.csproj", "{0EF8D19D-0225-4AA0-A1F6-8D41748A6904}"
 EndProject

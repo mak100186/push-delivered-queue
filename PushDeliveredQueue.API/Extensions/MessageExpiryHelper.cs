@@ -1,4 +1,4 @@
-﻿namespace PushDeliveredQueue.Sample.Extensions;
+﻿namespace PushDeliveredQueue.API.Extensions;
 
 public static class MessageExpiryHelper
 {

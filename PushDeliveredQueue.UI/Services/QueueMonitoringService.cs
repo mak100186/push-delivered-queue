@@ -1,4 +1,4 @@
-using PushDeliveredQueue.Sample.Dtos;
+using PushDeliveredQueue.API.Dtos;
 
 namespace PushDeliveredQueue.UI.Services;
 

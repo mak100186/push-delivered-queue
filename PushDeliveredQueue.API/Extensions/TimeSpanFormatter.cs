@@ -1,4 +1,4 @@
-﻿namespace PushDeliveredQueue.Sample.Extensions;
+﻿namespace PushDeliveredQueue.API.Extensions;
 public static class TimeSpanFormatter
 {
     public static string FormatRelative(this TimeSpan timeSpan)

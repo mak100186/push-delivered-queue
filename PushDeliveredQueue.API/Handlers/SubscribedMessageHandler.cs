@@ -1,7 +1,7 @@
 using PushDeliveredQueue.Core.Abstractions;
 using PushDeliveredQueue.Core.Models;
 
-namespace PushDeliveredQueue.Sample.Handlers;
+namespace PushDeliveredQueue.API.Handlers;
 
 public class SubscribedMessageHandler(ILogger<SubscribedMessageHandler> logger) : IQueueEventHandler
 {

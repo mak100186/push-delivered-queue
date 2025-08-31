@@ -8,7 +8,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-using PushDeliveredQueue.Sample.Dtos;
+using PushDeliveredQueue.API.Dtos;
 
 using Xunit;
 

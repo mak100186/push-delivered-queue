@@ -18,7 +18,7 @@
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
       "dotnetRunMessages": true,
-      "projectPath": "PushDeliveredQueue.Sample/PushDeliveredQueue.Sample.csproj"
+      "projectPath": "PushDeliveredQueue.API/PushDeliveredQueue.API.csproj"
     },
     "UI-Only": {
       "commandName": "Project",

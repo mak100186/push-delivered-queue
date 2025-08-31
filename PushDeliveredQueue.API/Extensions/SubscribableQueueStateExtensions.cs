@@ -1,7 +1,7 @@
 using PushDeliveredQueue.Core.Models;
-using PushDeliveredQueue.Sample.Dtos;
+using PushDeliveredQueue.API.Dtos;
 
-namespace PushDeliveredQueue.Sample.Extensions;
+namespace PushDeliveredQueue.API.Extensions;
 
 public static class SubscribableQueueStateExtensions
 {

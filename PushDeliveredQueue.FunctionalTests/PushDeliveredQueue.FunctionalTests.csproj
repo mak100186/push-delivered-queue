@@ -36,7 +36,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PushDeliveredQueue.Sample\PushDeliveredQueue.Sample.csproj" />
+    <ProjectReference Include="..\PushDeliveredQueue.API\PushDeliveredQueue.API.csproj" />
     <ProjectReference Include="..\PushDeliveredQueue.Core\PushDeliveredQueue.Core.csproj" />
     <ProjectReference Include="..\PushDeliveredQueue.AspNetCore\PushDeliveredQueue.AspNetCore.csproj" />
   </ItemGroup>

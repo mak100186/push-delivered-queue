@@ -20,7 +20,7 @@ function Start-ProjectInNewTerminal {
 
 # Start the API project
 Write-Host "📡 Starting API on https://localhost:7246..." -ForegroundColor Yellow
-Start-ProjectInNewTerminal -ProjectPath "PushDeliveredQueue.Sample" -ProjectName "API" -Urls "https://localhost:7246"
+Start-ProjectInNewTerminal -ProjectPath "PushDeliveredQueue.API" -ProjectName "API" -Urls "https://localhost:7246"
 
 # Wait a moment for the API to start
 Start-Sleep -Seconds 3

@@ -60,7 +60,7 @@ A reactive push-based message queue system built for .NET 9.0, designed for real
 
 - **`PushDeliveredQueue.Core`**: Core queue implementation and models
 - **`PushDeliveredQueue.AspNetCore`**: ASP.NET Core integration and DI extensions
-- **`PushDeliveredQueue.Sample`**: Example web application with API endpoints
+- **`PushDeliveredQueue.API`**: Example web application with API endpoints
 - **`PushDeliveredQueue.UI`**: Blazor Server UI for queue management
 - **`PushDeliveredQueue.UnitTests`**: Comprehensive unit test suite
 - **`PushDeliveredQueue.FunctionalTests`**: End-to-end functional tests
@@ -187,7 +187,7 @@ launch-both.bat
 
 ```bash
 # Terminal 1: Start the API
-cd PushDeliveredQueue.Sample
+cd PushDeliveredQueue.API
 dotnet run
 
 # Terminal 2: Start the UI
@@ -451,7 +451,7 @@ The project provides multiple sample applications:
 
 ```bash
 # Run the API sample application
-cd PushDeliveredQueue.Sample
+cd PushDeliveredQueue.API
 dotnet run
 
 # Access Swagger UI

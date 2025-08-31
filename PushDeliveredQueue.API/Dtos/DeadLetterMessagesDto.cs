@@ -1,3 +1,3 @@
-namespace PushDeliveredQueue.Sample.Dtos;
+namespace PushDeliveredQueue.API.Dtos;
 
 public record DeadLetterMessagesDto(Guid Id, string Payload);

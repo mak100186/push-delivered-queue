@@ -60,7 +60,7 @@ public class ProjectLauncher
             var uiUrl = GetUiUrl();
 
             // Start API first
-            await StartProjectAsync("PushDeliveredQueue.Sample", "API", apiUrl);
+            await StartProjectAsync("PushDeliveredQueue.API", "API", apiUrl);
 
             // Wait for API to be ready
             await Task.Delay(3000);
