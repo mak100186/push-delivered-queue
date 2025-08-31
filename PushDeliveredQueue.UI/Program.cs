@@ -1,5 +1,5 @@
-using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.API.Handlers;
+using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.UI.Components;
 using PushDeliveredQueue.UI.Services;
 
@@ -20,7 +20,7 @@ public class Program
         builder.Services.AddScoped<SubscribedMessageHandler>();
 
         // Add HTTP client for API communication
-        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7246/";
+        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? throw new InvalidOperationException("ApiSettings:BaseUrl configuration is missing from appsettings.json");
         builder.Services.AddHttpClient<QueueApiService>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
         // Add queue monitoring service

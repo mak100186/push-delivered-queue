@@ -1,0 +1,36 @@
+{
+  "profiles": {
+    "PushDeliveredQueue.Launcher-Debug": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "commandLineArgs": "--configuration Debug",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "PushDeliveredQueue.Launcher-Release": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "commandLineArgs": "--configuration Release",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production"
+      }
+    },
+    "PushDeliveredQueue.Launcher-NoBuild-Debug": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "commandLineArgs": "--no-build --configuration Debug",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "PushDeliveredQueue.Launcher-NoBuild-Release": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "commandLineArgs": "--no-build --configuration Release",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production"
+      }
+    }
+  }
+}

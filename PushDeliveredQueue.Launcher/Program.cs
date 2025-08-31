@@ -1,7 +1,12 @@
 using System.Diagnostics;
+using System.Net.Sockets;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+
+using Serilog;
+
+using static System.Environment;
 
 namespace PushDeliveredQueue.Launcher;
 
@@ -9,27 +14,115 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        Console.WriteLine("PushDeliveredQueue Launcher");
-        Console.WriteLine("================================");
-        Console.WriteLine();
+        // Build configuration
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(GetLauncherDirectory())
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .AddEnvironmentVariables()
+            .Build();
 
-        var launcher = new ProjectLauncher();
-        var apiUrl = launcher.GetApiUrl();
-        var uiUrl = launcher.GetUiUrl();
+        // Configure Serilog
+        Log.Logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(configuration)
+            .CreateLogger();
 
-        await launcher.StartAllProjectsAsync();
+        try
+        {
+            Log.Information("PushDeliveredQueue Launcher Starting...");
+            Log.Information("PushDeliveredQueue Launcher");
+            Log.Information("================================");
+            Log.Information(NewLine);
 
-        Console.WriteLine();
-        Console.WriteLine("All projects started successfully!");
-        Console.WriteLine("URLs:");
-        Console.WriteLine($"   API: {apiUrl}");
-        Console.WriteLine($"   UI:  {uiUrl}");
-        Console.WriteLine($"   Swagger: {apiUrl}");
-        Console.WriteLine();
-        Console.WriteLine("Press Ctrl+C to stop all projects...");
+            var launcher = new ProjectLauncher(configuration);
+            var apiUrl = launcher.GetApiUrl();
+            var uiUrl = launcher.GetUiUrl();
 
-        // Keep the launcher running
-        await Task.Delay(Timeout.Infinite);
+            // Check if --no-build flag is provided
+            var noBuild = args.Contains("--no-build");
+            
+            // Check for configuration (default to Debug)
+            var buildConfiguration = "Debug";
+            if (args.Contains("--configuration") || args.Contains("-c"))
+            {
+                var configIndex = Array.IndexOf(args, "--configuration");
+                if (configIndex == -1) configIndex = Array.IndexOf(args, "-c");
+                
+                if (configIndex >= 0 && configIndex + 1 < args.Length)
+                {
+                    buildConfiguration = args[configIndex + 1];
+                }
+            }
+
+            if (noBuild)
+            {
+                Log.Information("Mode: Running without building projects (--no-build)");
+            }
+            else
+            {
+                Log.Information("Mode: Building and running projects");
+            }
+            Log.Information("Configuration: {Configuration}", buildConfiguration);
+            Log.Information(NewLine);
+
+            await launcher.StartAllProjectsAsync(noBuild, buildConfiguration);
+
+            Log.Information(NewLine);
+            Log.Information("All projects started successfully!");
+            Log.Information("URLs:");
+            Log.Information("   API: {ApiUrl}", apiUrl);
+            Log.Information("   UI:  {UiUrl}", uiUrl);
+            Log.Information("   Swagger: {ApiUrl}", apiUrl);
+            Log.Information(NewLine);
+            Log.Information("Press Ctrl+C to stop all projects...");
+
+            // Keep the launcher running
+            await Task.Delay(Timeout.Infinite);
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Application terminated unexpectedly");
+            throw;
+        }
+        finally
+        {
+            await Log.CloseAndFlushAsync();
+        }
+    }
+
+    private static string GetLauncherDirectory()
+    {
+        // Get the directory where the launcher executable is located
+        var currentDir = Directory.GetCurrentDirectory();
+        
+        // If we're in the launcher's bin directory, go up to the launcher project directory
+        if (currentDir.Contains("PushDeliveredQueue.Launcher\\bin"))
+        {
+            // Go up: bin/Debug/net9.0 -> bin/Debug -> bin -> PushDeliveredQueue.Launcher
+            var launcherDir = Directory.GetParent(currentDir)?.Parent?.Parent?.FullName;
+            if (string.IsNullOrEmpty(launcherDir))
+            {
+                throw new InvalidOperationException("Could not determine launcher directory");
+            }
+            return launcherDir;
+        }
+        
+        // If we're already in the launcher project directory
+        if (File.Exists(Path.Combine(currentDir, "PushDeliveredQueue.Launcher.csproj")))
+        {
+            return currentDir;
+        }
+        
+        // If we're in the solution root, go to the launcher directory
+        if (File.Exists(Path.Combine(currentDir, "PushDeliveredQueue.sln")))
+        {
+            var launcherDir = Path.Combine(currentDir, "PushDeliveredQueue.Launcher");
+            if (Directory.Exists(launcherDir))
+            {
+                return launcherDir;
+            }
+        }
+        
+        throw new InvalidOperationException("Could not determine launcher directory");
     }
 }
 
@@ -39,34 +132,45 @@ public class ProjectLauncher
     private readonly IConfiguration _configuration;
     private readonly List<Process> _processes = new();
 
-    public ProjectLauncher()
+    public ProjectLauncher(IConfiguration configuration)
     {
-        // Build configuration
-        _configuration = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddEnvironmentVariables()
-            .Build();
-
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        _configuration = configuration;
+        
+        // Create logger factory with Serilog
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddSerilog(dispose: true);
+        });
+        
         _logger = loggerFactory.CreateLogger<ProjectLauncher>();
     }
 
-    public async Task StartAllProjectsAsync()
+    public async Task StartAllProjectsAsync(bool noBuild = false, string configuration = "Debug")
     {
         try
         {
             var apiUrl = GetApiUrl();
             var uiUrl = GetUiUrl();
 
+            // Check port availability
+            await CheckPortAvailabilityAsync(apiUrl, "API");
+            await CheckPortAvailabilityAsync(uiUrl, "UI");
+
+            // Build projects if needed
+            if (!noBuild)
+            {
+                await BuildProjectAsync("PushDeliveredQueue.API", "API", configuration);
+                await BuildProjectAsync("PushDeliveredQueue.UI", "UI", configuration);
+            }
+
             // Start API first
-            await StartProjectAsync("PushDeliveredQueue.API", "API", apiUrl);
+            await StartProjectAsync("PushDeliveredQueue.API", "API", apiUrl, configuration);
 
             // Wait for API to be ready
             await Task.Delay(3000);
 
             // Start UI
-            await StartProjectAsync("PushDeliveredQueue.UI", "UI", uiUrl);
+            await StartProjectAsync("PushDeliveredQueue.UI", "UI", uiUrl, configuration);
         }
         catch (Exception ex)
         {
@@ -76,15 +180,108 @@ public class ProjectLauncher
         }
     }
 
-    private async Task StartProjectAsync(string projectPath, string projectName, string urls)
+    private async Task CheckPortAvailabilityAsync(string url, string projectName)
     {
-        _logger.LogInformation("Starting {ProjectName} on {Urls}...", projectName, urls);
+        try
+        {
+            var uri = new Uri(url);
+            var port = uri.Port;
+
+            using var client = new TcpClient();
+            await client.ConnectAsync(uri.Host, port);
+            client.Close();
+
+            _logger.LogWarning("Port {Port} is already in use by another process. {ProjectName} may fail to start.", port, projectName);
+        }
+        catch (SocketException)
+        {
+            _logger.LogInformation("Port {Port} is available for {ProjectName}", new Uri(url).Port, projectName);
+        }
+    }
+
+    private async Task BuildProjectAsync(string projectPath, string projectName, string configuration)
+    {
+        _logger.LogInformation("Building {ProjectName} in {Configuration} configuration...", projectName, configuration);
+
+        // Get the solution directory
+        var solutionDir = GetSolutionDirectory();
+        var fullProjectPath = Path.Combine(solutionDir, projectPath);
 
         var startInfo = new ProcessStartInfo
         {
             FileName = "dotnet",
-            Arguments = $"run --project {projectPath} --urls {urls}",
-            UseShellExecute = true,
+            Arguments = $"build \"{fullProjectPath}\" --configuration {configuration}",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        var process = new Process { StartInfo = startInfo };
+
+        // Set up output handlers
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+            {
+                _logger.LogInformation("[{ProjectName} Build] {Output}", projectName, e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+            {
+                _logger.LogError("[{ProjectName} Build] {Error}", projectName, e.Data);
+            }
+        };
+
+        if (!process.Start())
+        {
+            throw new InvalidOperationException($"Failed to start build for {projectName}");
+        }
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"{projectName} build failed with exit code {process.ExitCode}");
+        }
+
+        _logger.LogInformation("{ProjectName} built successfully", projectName);
+    }
+
+    private async Task StartProjectAsync(string projectPath, string projectName, string urls, string configuration)
+    {
+        _logger.LogInformation("Starting {ProjectName} on {Urls}...", projectName, urls);
+
+        // Get the solution directory
+        var solutionDir = GetSolutionDirectory();
+        var fullProjectPath = Path.Combine(solutionDir, projectPath);
+
+        // Construct path to the compiled DLL
+        var dllPath = Path.Combine(fullProjectPath, "bin", configuration, "net9.0", $"{projectPath}.dll");
+        
+        _logger.LogInformation("DLL path: {DllPath}", dllPath);
+
+        // Check if DLL exists
+        if (!File.Exists(dllPath))
+        {
+            throw new InvalidOperationException($"Compiled DLL not found: {dllPath}. Please build the project first.");
+        }
+
+        var arguments = $"\"{dllPath}\" --urls {urls}";
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = arguments,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
             CreateNoWindow = false,
             WindowStyle = ProcessWindowStyle.Normal
         };
@@ -92,18 +289,46 @@ public class ProjectLauncher
         var process = new Process { StartInfo = startInfo };
         _processes.Add(process);
 
+        // Set up output handlers
+        process.OutputDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+            {
+                _logger.LogInformation("[{ProjectName}] {Output}", projectName, e.Data);
+            }
+        };
+
+        process.ErrorDataReceived += (sender, e) =>
+        {
+            if (!string.IsNullOrEmpty(e.Data))
+            {
+                _logger.LogError("[{ProjectName}] {Error}", projectName, e.Data);
+            }
+        };
+
         if (!process.Start())
         {
             throw new InvalidOperationException($"Failed to start {projectName}");
         }
 
+        // Begin reading output
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
         // Wait a moment for the process to initialize
-        await Task.Delay(1000);
+        await Task.Delay(2000);
+
+        // Check if process has exited
+        if (process.HasExited)
+        {
+            var exitCode = process.ExitCode;
+            throw new InvalidOperationException($"{projectName} exited with code {exitCode}. Check the logs above for details.");
+        }
 
         _logger.LogInformation("{ProjectName} started successfully", projectName);
     }
 
-    public async Task StopAllProjectsAsync()
+    private async Task StopAllProjectsAsync()
     {
         _logger.LogInformation("Stopping all projects...");
 
@@ -127,7 +352,36 @@ public class ProjectLauncher
         _logger.LogInformation("All projects stopped");
     }
 
-    public string GetApiUrl() => _configuration["ApplicationUrls:Api"] ?? "https://localhost:7246";
+    public string GetApiUrl()
+    {
+        var apiUrl = _configuration["ApplicationUrls:Api"];
+        return string.IsNullOrEmpty(apiUrl)
+            ? throw new InvalidOperationException("ApplicationUrls:Api configuration is missing from appsettings.json")
+            : apiUrl;
+    }
 
-    public string GetUiUrl() => _configuration["ApplicationUrls:Ui"] ?? "https://localhost:7274";
+    public string GetUiUrl()
+    {
+        var uiUrl = _configuration["ApplicationUrls:Ui"];
+        return string.IsNullOrEmpty(uiUrl)
+            ? throw new InvalidOperationException("ApplicationUrls:Ui configuration is missing from appsettings.json")
+            : uiUrl;
+    }
+
+    private static string GetSolutionDirectory()
+    {
+        // Navigate up from current directory to find solution root
+        var currentDir = Directory.GetCurrentDirectory();
+        
+        // If we're in the launcher's bin directory, go up to solution root
+        if (currentDir.Contains("PushDeliveredQueue.Launcher\\bin"))
+        {
+            // Go up: bin/Debug/net9.0 -> bin/Debug -> bin -> PushDeliveredQueue.Launcher -> solution root
+            var solutionDir = Directory.GetParent(currentDir)?.Parent?.Parent?.Parent?.FullName;
+            return string.IsNullOrEmpty(solutionDir) ? throw new InvalidOperationException("Could not determine solution directory") : solutionDir;
+        }
+
+        // If we're already in the solution root
+        return File.Exists(Path.Combine(currentDir, "PushDeliveredQueue.sln")) ? currentDir : throw new InvalidOperationException("Could not determine solution directory");
+    }
 }

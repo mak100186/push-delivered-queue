@@ -14,8 +14,10 @@ public class SubscribableQueueOptions
 {
     [Required]
     public TimeSpan Ttl { get; set; }
+    
     [Range(1, 100)]
-    public int RetryCount { get; set; }
+    public int RetryCount { get; set; } = 5;
+    
     [Range(10, 1000)]
-    public int DelayBetweenRetriesMs { get; set; }
+    public int DelayBetweenRetriesMs { get; set; } = 200;
 }
