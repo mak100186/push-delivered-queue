@@ -1,6 +1,0 @@
-@PushDeliveredQueue.Sample_HostAddress = http://localhost:7246
-
-GET {{PushDeliveredQueue.Sample_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
