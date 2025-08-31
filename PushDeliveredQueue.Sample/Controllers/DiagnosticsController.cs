@@ -17,4 +17,11 @@ public class DiagnosticsController(SubscribableQueue queue) : ControllerBase
 
         return Ok(state.ToExternalDto());
     }
+
+    [HttpPost("changePayload")]
+    public IActionResult ChangePayload(Guid messageId, string payload, CancellationToken cancellationToken)
+    {
+        queue.ChangeMessagePayload(messageId, payload, cancellationToken);
+        return Ok();
+    }
 }
