@@ -40,8 +40,10 @@ jobs:
         
     - name: Generate functional coverage report
       run: |
-        dotnet tool install -g dotnet-reportgenerator-globaltool
-        reportgenerator -reports:./functional-coverage-results/**/coverage.cobertura.xml -targetdir:./functional-coverage-report -reporttypes:HtmlInline_AzurePipelines;Cobertura
+        reportgenerator \
+          -reports:./functional-tests/TestResults/*/coverage.cobertura.xml \
+          -targetdir:./functional-coverage-report \
+          -reporttypes:HtmlInline_AzurePipelines;Cobertura
         
     - name: Upload functional coverage report
       uses: actions/upload-artifact@v4
