@@ -145,7 +145,7 @@ public class ModelTests
         };
         var subscribers = new Dictionary<Guid, SubscriberState>
         {
-            { Guid.NewGuid(), new SubscriberState { CursorIndex = 1, IsCommitted = true, PendingCount = 5 } }
+            { Guid.NewGuid(), new() { CursorIndex = 1, IsCommitted = true, PendingCount = 5 } }
         };
 
         // Act
@@ -181,7 +181,7 @@ public class ModelTests
     }
 
     [Fact]
-    public void MessageHandler_WithNackResult_ShouldReturnNack()
+    public async Task MessageHandler_WithNackResult_ShouldReturnNack()
     {
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
@@ -192,14 +192,14 @@ public class ModelTests
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
-        var result = handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid(), CancellationToken.None).Result;
+        var result = await handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid(), CancellationToken.None);
 
         // Assert
         result.Should().Be(DeliveryResult.Nack);
     }
 
     [Fact]
-    public void MessageHandler_WithException_ShouldThrowException()
+    public async Task MessageHandler_WithException_ShouldThrowException()
     {
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
@@ -211,8 +211,7 @@ public class ModelTests
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act & Assert
-        var action = () => handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid(), CancellationToken.None).Result;
-        action.Should().Throw<InvalidOperationException>().WithMessage("Test exception");
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]

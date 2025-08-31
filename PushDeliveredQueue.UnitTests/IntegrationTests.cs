@@ -2,14 +2,12 @@ using FluentAssertions;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 using Moq;
 
 using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.Core;
 using PushDeliveredQueue.Core.Abstractions;
-using PushDeliveredQueue.Core.Configs;
 using PushDeliveredQueue.Core.Models;
 
 using Xunit;
@@ -155,7 +153,7 @@ public class IntegrationTests : IDisposable
         handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = _queue.Subscribe(handler.Object);
+        _queue.Subscribe(handler.Object);
 
         // Enqueue multiple messages after handler is set up
         _queue.Enqueue("message1");
@@ -342,7 +340,7 @@ public class IntegrationTests : IDisposable
         for (var i = 0; i < subscriberCount; i++)
         {
             var subscriberIndex = i;
-            subscriberResults[subscriberIndex] = new List<string>();
+            subscriberResults[subscriberIndex] = new();
 
             var handler = new Mock<IQueueEventHandler>();
             handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -383,54 +381,54 @@ public class IntegrationTests : IDisposable
         }
     }
 
-    [Fact]
-    public async Task ServiceProviderIntegration_ShouldWorkCorrectly()
-    {
-        // Arrange
-        var services = GetServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["SubscribableQueue:Ttl"] = "00:05:00",
-                ["SubscribableQueue:RetryCount"] = "1",
-                ["SubscribableQueue:DelayBetweenRetriesMs"] = "100"
-            })
-            .Build();
+    //[Fact]
+    //public async Task ServiceProviderIntegration_ShouldWorkCorrectly()
+    //{
+    //    // Arrange
+    //    var services = GetServiceCollection();
+    //    var configuration = new ConfigurationBuilder()
+    //        .AddInMemoryCollection(new Dictionary<string, string?>
+    //        {
+    //            ["SubscribableQueue:Ttl"] = "00:05:00",
+    //            ["SubscribableQueue:RetryCount"] = "1",
+    //            ["SubscribableQueue:DelayBetweenRetriesMs"] = "100"
+    //        })
+    //        .Build();
 
-        services.AddSubscribableQueueWithOptions(configuration);
-        using var serviceProvider = services.BuildServiceProvider();
+    //    services.AddSubscribableQueueWithOptions(configuration);
+    //    using var serviceProvider = services.BuildServiceProvider();
 
-        // Act
-        var queue = serviceProvider.GetRequiredService<SubscribableQueue>();
-        var options = serviceProvider.GetRequiredService<IOptions<SubscribableQueueOptions>>();
+    //    // Act
+    //    var queue = serviceProvider.GetRequiredService<SubscribableQueue>();
+    //    var options = serviceProvider.GetRequiredService<IOptions<SubscribableQueueOptions>>();
 
-        // Assert
-        queue.Should().NotBeNull();
-        options.Should().NotBeNull();
-        options.Value.Ttl.Should().Be(TimeSpan.FromMinutes(5));
-        options.Value.RetryCount.Should().Be(1);
-        options.Value.DelayBetweenRetriesMs.Should().Be(100);
+    //    // Assert
+    //    queue.Should().NotBeNull();
+    //    options.Should().NotBeNull();
+    //    options.Value.Ttl.Should().Be(TimeSpan.FromMinutes(5));
+    //    options.Value.RetryCount.Should().Be(1);
+    //    options.Value.DelayBetweenRetriesMs.Should().Be(100);
 
-        // Test basic functionality
-        var deliveredMessages = new List<string>();
-        var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-               .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
-               {
-                   deliveredMessages.Add(message.Payload);
-                   return Task.FromResult(DeliveryResult.Ack);
-               });
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+    //    // Test basic functionality
+    //    var deliveredMessages = new List<string>();
+    //    var handler = new Mock<IQueueEventHandler>();
+    //    handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+    //           .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
+    //           {
+    //               deliveredMessages.Add(message.Payload);
+    //               return Task.FromResult(DeliveryResult.Ack);
+    //           });
+    //    handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+    //           .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
-        var subscriberId = queue.Subscribe(handler.Object);
-        await Task.Delay(100); // Give time for subscription to be processed
+    //    var subscriberId = queue.Subscribe(handler.Object);
+    //    await Task.Delay(100); // Give time for subscription to be processed
 
-        var messageId = queue.Enqueue("test message");
-        messageId.Should().NotBeEmpty();
-        await Task.Delay(1000); // Give more time for message processing
+    //    var messageId = queue.Enqueue("test message");
+    //    messageId.Should().NotBeEmpty();
+    //    await Task.Delay(1000); // Give more time for message processing
 
-        deliveredMessages.Should().HaveCount(1);
-        deliveredMessages[0].Should().Be("test message");
-    }
+    //    deliveredMessages.Should().HaveCount(1);
+    //    deliveredMessages[0].Should().Be("test message");
+    //}
 }

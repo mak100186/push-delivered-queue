@@ -22,8 +22,8 @@ public class PostMessageFailedBehaviorTests : IDisposable
 
     public PostMessageFailedBehaviorTests()
     {
-        _mockLogger = new Mock<ILogger<SubscribableQueue>>();
-        _mockOptions = new Mock<IOptions<SubscribableQueueOptions>>();
+        _mockLogger = new();
+        _mockOptions = new();
         _mockOptions.Setup(x => x.Value).Returns(new SubscribableQueueOptions
         {
             Ttl = TimeSpan.FromMinutes(5),
@@ -31,13 +31,10 @@ public class PostMessageFailedBehaviorTests : IDisposable
             DelayBetweenRetriesMs = 50
         });
 
-        _queue = new SubscribableQueue(_mockOptions.Object, _mockLogger.Object);
+        _queue = new(_mockOptions.Object, _mockLogger.Object);
     }
 
-    public void Dispose()
-    {
-        _queue?.Dispose();
-    }
+    public void Dispose() => _queue?.Dispose();
 
     [Fact]
     public void PostMessageFailedBehavior_AllValues_ShouldBeDefined()
@@ -70,7 +67,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenCommit);
 
         // Act
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -99,7 +96,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
 
         // Act
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -123,7 +120,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.AddToDLQ);
 
         // Act
-        var messageId = _queue.Enqueue("fail message");
+        _queue.Enqueue("fail message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -151,7 +148,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
-        var messageId = _queue.Enqueue("fail message");
+        _queue.Enqueue("fail message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -174,8 +171,8 @@ public class PostMessageFailedBehaviorTests : IDisposable
         handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Block);
 
-        // Act;
-        var messageId = _queue.Enqueue("test message");
+        // Act
+        _queue.Enqueue("test message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -199,7 +196,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.AddToDLQ);
 
         // Act
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -219,7 +216,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        var subscriberId = _queue.Subscribe(handler.Object);
+        _queue.Subscribe(handler.Object);
 
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Nack);
@@ -228,7 +225,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.AddToDLQ);
 
         // Act
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
         await Task.Delay(500); // Wait for processing
 
         // Assert
@@ -249,7 +246,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        var subscriberId = _queue.Subscribe(handler.Object);
+        _queue.Subscribe(handler.Object);
 
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Nack);
@@ -258,7 +255,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
                .ReturnsAsync(behavior);
 
         // Act & Assert - Should not throw
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
         await Task.Delay(500); // Wait for processing
         _queue.GetState().Should().NotBeNull();
     }

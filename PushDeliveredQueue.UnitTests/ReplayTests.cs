@@ -23,8 +23,8 @@ public class ReplayTests : IDisposable
 
     public ReplayTests()
     {
-        _mockLogger = new Mock<ILogger<SubscribableQueue>>();
-        _mockOptions = new Mock<IOptions<SubscribableQueueOptions>>();
+        _mockLogger = new();
+        _mockOptions = new();
         _mockOptions.Setup(x => x.Value).Returns(new SubscribableQueueOptions
         {
             Ttl = TimeSpan.FromMinutes(5),
@@ -32,14 +32,11 @@ public class ReplayTests : IDisposable
             DelayBetweenRetriesMs = 50
         });
 
-        _queue = new SubscribableQueue(_mockOptions.Object, _mockLogger.Object);
-        _mockHandler = new Mock<IQueueEventHandler>();
+        _queue = new(_mockOptions.Object, _mockLogger.Object);
+        _mockHandler = new();
     }
 
-    public void Dispose()
-    {
-        _queue?.Dispose();
-    }
+    public void Dispose() => _queue?.Dispose();
 
     [Fact]
     public void ChangeMessagePayload_WithValidMessageId_ShouldUpdatePayload()
@@ -155,8 +152,8 @@ public class ReplayTests : IDisposable
     {
         // Arrange
         var subscriberId = _queue.Subscribe(_mockHandler.Object);
-        var message1 = _queue.Enqueue("message 1");
-        var message2 = _queue.Enqueue("message 2");
+        _queue.Enqueue("message 1");
+        _queue.Enqueue("message 2");
 
         // Setup handler to fail and add to DLQ
         _mockHandler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -206,8 +203,8 @@ public class ReplayTests : IDisposable
         // Arrange
         var handler1 = new Mock<IQueueEventHandler>();
         var handler2 = new Mock<IQueueEventHandler>();
-        var subscriber1 = _queue.Subscribe(handler1.Object);
-        var subscriber2 = _queue.Subscribe(handler2.Object);
+        _queue.Subscribe(handler1.Object);
+        _queue.Subscribe(handler2.Object);
 
         // Act
         _queue.ReplayAllDlqSubscribers(CancellationToken.None);
@@ -226,9 +223,9 @@ public class ReplayTests : IDisposable
                    .ReturnsAsync(DeliveryResult.Ack);
         
         var subscriberId = _queue.Subscribe(_mockHandler.Object);
-        var message1 = _queue.Enqueue("message 1");
+        _queue.Enqueue("message 1");
         var message2 = _queue.Enqueue("message 2");
-        var message3 = _queue.Enqueue("message 3");
+        _queue.Enqueue("message 3");
 
         // Wait for some processing
         await Task.Delay(500);

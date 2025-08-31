@@ -16,14 +16,8 @@ namespace PushDeliveredQueue.UnitTests;
 
 public class TtlTests : IDisposable
 {
-    private readonly Mock<ILogger<SubscribableQueue>> _mockLogger;
-    private readonly Mock<IOptions<SubscribableQueueOptions>> _mockOptions;
-
-    public TtlTests()
-    {
-        _mockLogger = new Mock<ILogger<SubscribableQueue>>();
-        _mockOptions = new Mock<IOptions<SubscribableQueueOptions>>();
-    }
+    private readonly Mock<ILogger<SubscribableQueue>> _mockLogger = new();
+    private readonly Mock<IOptions<SubscribableQueueOptions>> _mockOptions = new();
 
     public void Dispose()
     {
@@ -220,7 +214,7 @@ public class TtlTests : IDisposable
     }
 
     [Fact]
-    public async Task PruneExpiredMessages_WithCancellation_ShouldStopGracefully()
+    public void PruneExpiredMessages_WithCancellation_ShouldStopGracefully()
     {
         // Arrange
         var longTtl = TimeSpan.FromMinutes(5);

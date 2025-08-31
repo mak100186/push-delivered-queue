@@ -22,8 +22,8 @@ public class ErrorHandlingTests : IDisposable
 
     public ErrorHandlingTests()
     {
-        _mockLogger = new Mock<ILogger<SubscribableQueue>>();
-        _mockOptions = new Mock<IOptions<SubscribableQueueOptions>>();
+        _mockLogger = new();
+        _mockOptions = new();
         _mockOptions.Setup(x => x.Value).Returns(new SubscribableQueueOptions
         {
             Ttl = TimeSpan.FromMinutes(5),
@@ -31,13 +31,10 @@ public class ErrorHandlingTests : IDisposable
             DelayBetweenRetriesMs = 100
         });
 
-        _queue = new SubscribableQueue(_mockOptions.Object, _mockLogger.Object);
+        _queue = new(_mockOptions.Object, _mockLogger.Object);
     }
 
-    public void Dispose()
-    {
-        _queue?.Dispose();
-    }
+    public void Dispose() => _queue?.Dispose();
 
     [Fact]
     public void Constructor_WithNullOptions_ShouldThrowArgumentNullException()
@@ -94,7 +91,7 @@ public class ErrorHandlingTests : IDisposable
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
         var subscriberId = _queue.Subscribe(handler.Object);
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
 
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ThrowsAsync(new InvalidOperationException("Test exception"));
@@ -122,8 +119,8 @@ public class ErrorHandlingTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        var subscriberId = _queue.Subscribe(handler.Object);
-        var messageId = _queue.Enqueue("test message");
+        _queue.Subscribe(handler.Object);
+        _queue.Enqueue("test message");
 
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ThrowsAsync(new InvalidOperationException("Test exception"));
@@ -143,8 +140,8 @@ public class ErrorHandlingTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        var subscriberId = _queue.Subscribe(handler.Object);
-        var messageId = _queue.Enqueue("test message");
+        _queue.Subscribe(handler.Object);
+        _queue.Enqueue("test message");
 
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Nack);
@@ -163,7 +160,7 @@ public class ErrorHandlingTests : IDisposable
     }
 
     [Fact]
-    public async Task GetState_WithConcurrentAccess_ShouldNotThrow()
+    public void GetState_WithConcurrentAccess_ShouldNotThrow()
     {
         // Arrange
         var tasks = new List<Task>();
@@ -186,7 +183,7 @@ public class ErrorHandlingTests : IDisposable
     }
 
     [Fact]
-    public async Task Enqueue_WithConcurrentAccess_ShouldNotThrowAsync()
+    public void Enqueue_WithConcurrentAccess_ShouldNotThrowAsync()
     {
         // Arrange
         var tasks = new List<Task<Guid>>();
@@ -198,7 +195,7 @@ public class ErrorHandlingTests : IDisposable
         }
 
         // Assert - Should not throw and all messages should be enqueued
-        Task.WaitAll(tasks.ToArray());
+        Task.WaitAll(tasks);
         var state = _queue.GetState();
         state.Buffer.Should().HaveCount(100);
     }
@@ -220,7 +217,7 @@ public class ErrorHandlingTests : IDisposable
         }
 
         // Assert - Should not throw and all subscribers should be created
-        Task.WaitAll(tasks.ToArray());
+        Task.WaitAll(tasks);
         var state = _queue.GetState();
         state.Subscribers.Should().HaveCount(10);
     }
@@ -230,7 +227,7 @@ public class ErrorHandlingTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        var subscriberId = _queue.Subscribe(handler.Object);
+        _queue.Subscribe(handler.Object);
 
         // Act
         _queue.Dispose();
@@ -244,9 +241,13 @@ public class ErrorHandlingTests : IDisposable
     public void Dispose_MultipleTimes_ShouldNotThrow()
     {
         // Act & Assert - Should not throw on multiple dispose calls
-        _queue.Dispose();
-        _queue.Dispose();
-        _queue.Dispose();
+        FluentActions.Invoking(() =>
+            {
+                _queue.Dispose();
+                _queue.Dispose();
+                _queue.Dispose();
+            })
+            .Should().NotThrow();
     }
 
     [Fact]
@@ -255,7 +256,7 @@ public class ErrorHandlingTests : IDisposable
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
         var subscriberId = _queue.Subscribe(handler.Object);
-        var messageId = _queue.Enqueue("test message");
+        _queue.Enqueue("test message");
 
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
@@ -301,8 +302,8 @@ public class ErrorHandlingTests : IDisposable
 
         await Task.Delay(100);
 
-        var cts = new CancellationTokenSource();
-        cts.Cancel();
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
 
         // Act & Assert - Should handle cancellation gracefully
         var action = () => _queue.ReplayFromDlqAsync(subscriberId, messageId, cts.Token);

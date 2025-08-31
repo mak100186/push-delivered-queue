@@ -263,25 +263,13 @@
         await MonitoringService.StartMonitoringAsync();
     }
 
-    private void OnStateChanged(SubscribableQueueStateDto? state)
-    {
-        InvokeAsync(StateHasChanged);
-    }
+    private void OnStateChanged(SubscribableQueueStateDto? state) => InvokeAsync(StateHasChanged);
 
-    private async Task StartMonitoring()
-    {
-        await MonitoringService.StartMonitoringAsync();
-    }
+    private async Task StartMonitoring() => await MonitoringService.StartMonitoringAsync();
 
-    private void StopMonitoring()
-    {
-        MonitoringService.StopMonitoring();
-    }
+    private void StopMonitoring() => MonitoringService.StopMonitoring();
 
-    private async Task RefreshNow()
-    {
-        await MonitoringService.RefreshStateAsync();
-    }
+    private async Task RefreshNow() => await MonitoringService.RefreshStateAsync();
 
     private async Task Subscribe()
     {
@@ -362,18 +350,9 @@
         }
     }
 
-    private int GetTotalDlqMessages()
-    {
-        return MonitoringService.CurrentState?.Subscribers.Values.Sum(s => s.DeadLetterQueue.Count) ?? 0;
-    }
+    private int GetTotalDlqMessages() => MonitoringService.CurrentState?.Subscribers.Values.Sum(s => s.DeadLetterQueue.Count) ?? 0;
 
-    private int GetTotalPendingMessages()
-    {
-        return MonitoringService.CurrentState?.Subscribers.Values.Sum(s => s.PendingMessageCount) ?? 0;
-    }
+    private int GetTotalPendingMessages() => MonitoringService.CurrentState?.Subscribers.Values.Sum(s => s.PendingMessageCount) ?? 0;
 
-    public void Dispose()
-    {
-        MonitoringService.StateChanged -= OnStateChanged;
-    }
+    public void Dispose() => MonitoringService.StateChanged -= OnStateChanged;
 }
