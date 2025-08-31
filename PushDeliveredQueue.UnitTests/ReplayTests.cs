@@ -221,7 +221,7 @@ public class ReplayTests : IDisposable
         // Setup handler to process messages BEFORE subscribing
         _mockHandler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(DeliveryResult.Ack);
-        
+
         var subscriberId = _queue.Subscribe(_mockHandler.Object);
         _queue.Enqueue("message 1");
         var message2 = _queue.Enqueue("message 2");

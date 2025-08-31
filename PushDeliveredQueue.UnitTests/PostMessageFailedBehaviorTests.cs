@@ -112,7 +112,7 @@ public class PostMessageFailedBehaviorTests : IDisposable
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
         var subscriberId = _queue.Subscribe(handler.Object);
-        
+
         handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Nack);
 

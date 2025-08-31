@@ -1,5 +1,6 @@
 using System.Diagnostics;
 
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace PushDeliveredQueue.Launcher;
@@ -13,14 +14,17 @@ public class Program
         Console.WriteLine();
 
         var launcher = new ProjectLauncher();
+        var apiUrl = launcher.GetApiUrl();
+        var uiUrl = launcher.GetUiUrl();
+
         await launcher.StartAllProjectsAsync();
 
         Console.WriteLine();
         Console.WriteLine("All projects started successfully!");
         Console.WriteLine("URLs:");
-        Console.WriteLine("   API: https://localhost:7246");
-        Console.WriteLine("   UI:  https://localhost:7274");
-        Console.WriteLine("   Swagger: https://localhost:7246");
+        Console.WriteLine($"   API: {apiUrl}");
+        Console.WriteLine($"   UI:  {uiUrl}");
+        Console.WriteLine($"   Swagger: {apiUrl}");
         Console.WriteLine();
         Console.WriteLine("Press Ctrl+C to stop all projects...");
 
@@ -32,10 +36,18 @@ public class Program
 public class ProjectLauncher
 {
     private readonly ILogger<ProjectLauncher> _logger;
+    private readonly IConfiguration _configuration;
     private readonly List<Process> _processes = new();
 
     public ProjectLauncher()
     {
+        // Build configuration
+        _configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .AddEnvironmentVariables()
+            .Build();
+
         var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         _logger = loggerFactory.CreateLogger<ProjectLauncher>();
     }
@@ -44,14 +56,17 @@ public class ProjectLauncher
     {
         try
         {
+            var apiUrl = GetApiUrl();
+            var uiUrl = GetUiUrl();
+
             // Start API first
-            await StartProjectAsync("PushDeliveredQueue.Sample", "API", "https://localhost:7246");
-            
+            await StartProjectAsync("PushDeliveredQueue.Sample", "API", apiUrl);
+
             // Wait for API to be ready
             await Task.Delay(3000);
-            
+
             // Start UI
-            await StartProjectAsync("PushDeliveredQueue.UI", "UI", "https://localhost:7274");
+            await StartProjectAsync("PushDeliveredQueue.UI", "UI", uiUrl);
         }
         catch (Exception ex)
         {
@@ -111,4 +126,8 @@ public class ProjectLauncher
         _processes.Clear();
         _logger.LogInformation("All projects stopped");
     }
+
+    public string GetApiUrl() => _configuration["ApplicationUrls:Api"] ?? "https://localhost:7246";
+
+    public string GetUiUrl() => _configuration["ApplicationUrls:Ui"] ?? "https://localhost:7274";
 }

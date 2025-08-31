@@ -4,6 +4,7 @@ using PushDeliveredQueue.UI.Components;
 using PushDeliveredQueue.UI.Services;
 
 namespace PushDeliveredQueue.UI;
+
 public class Program
 {
     public static void Main(string[] args)

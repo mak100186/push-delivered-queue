@@ -76,14 +76,14 @@ public class QueueMonitoringService : IDisposable
     {
         StopMonitoring();
         _refreshTimer.Dispose();
-        
+
         // Clean up all callbacks
         foreach (var callback in _stateChangeCallbacks.ToList())
         {
             StateChanged -= callback;
         }
         _stateChangeCallbacks.Clear();
-        
+
         GC.SuppressFinalize(this);
     }
 }
