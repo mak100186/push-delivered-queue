@@ -19,6 +19,20 @@ builder.Services.AddScoped<SubscribedMessageHandler>();
 
 var app = builder.Build();
 
+// Subscribe to host lifetime events
+var lifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+
+lifetime.ApplicationStarted.Register(() =>
+{
+    logger.LogInformation("PushDeliveredQueue API service has started successfully");
+});
+
+lifetime.ApplicationStopping.Register(() =>
+{
+    logger.LogInformation("PushDeliveredQueue API service is stopping");
+});
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -26,7 +40,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "PushDeliveredQueue Sample API V1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "PushDeliveredQueue API V1");
         c.EnableTryItOutByDefault();
         c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
     });
