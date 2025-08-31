@@ -6,8 +6,7 @@ public class QueueMonitoringService : IDisposable
 {
     private readonly QueueApiService _apiService;
     private readonly ILogger<QueueMonitoringService> _logger;
-    private readonly System.Timers.Timer _refreshTimer;
-    private readonly List<Action<SubscribableQueueStateDto?>> _stateChangeCallbacks = new();
+    private readonly Timer _refreshTimer;
 
     public SubscribableQueueStateDto? CurrentState { get; private set; }
     public bool IsMonitoring { get; private set; }
@@ -19,31 +18,39 @@ public class QueueMonitoringService : IDisposable
     {
         _apiService = apiService;
         _logger = logger;
-        _refreshTimer = new System.Timers.Timer(2000); // Refresh every 2 seconds
-        _refreshTimer.Elapsed += async (sender, e) => await RefreshStateAsync();
+        _refreshTimer = new Timer(async _ => await RefreshStateAsync(), null, TimeSpan.Zero, TimeSpan.FromSeconds(2)); // Refresh every 2 seconds
     }
 
     public async Task StartMonitoringAsync()
     {
-        if (IsMonitoring) return;
+        if (IsMonitoring)
+        {
+            return;
+        }
 
         IsMonitoring = true;
-        _refreshTimer.Start();
         await RefreshStateAsync();
         _logger.LogInformation("Queue monitoring started");
     }
 
     public void StopMonitoring()
     {
-        if (!IsMonitoring) return;
+        if (!IsMonitoring)
+        {
+            return;
+        }
 
         IsMonitoring = false;
-        _refreshTimer.Stop();
         _logger.LogInformation("Queue monitoring stopped");
     }
 
     public async Task RefreshStateAsync()
     {
+        if (!IsMonitoring)
+        {
+            return;
+        }
+
         try
         {
             var newState = await _apiService.GetQueueStateAsync();
@@ -59,31 +66,12 @@ public class QueueMonitoringService : IDisposable
             _logger.LogError(ex, "Failed to refresh queue state");
         }
     }
-
-    public void RegisterStateChangeCallback(Action<SubscribableQueueStateDto?> callback)
-    {
-        _stateChangeCallbacks.Add(callback);
-        StateChanged += callback;
-    }
-
-    public void UnregisterStateChangeCallback(Action<SubscribableQueueStateDto?> callback)
-    {
-        _stateChangeCallbacks.Remove(callback);
-        StateChanged -= callback;
-    }
-
+    
     public void Dispose()
     {
         StopMonitoring();
         _refreshTimer.Dispose();
-
-        // Clean up all callbacks
-        foreach (var callback in _stateChangeCallbacks.ToList())
-        {
-            StateChanged -= callback;
-        }
-        _stateChangeCallbacks.Clear();
-
+        
         GC.SuppressFinalize(this);
     }
 }

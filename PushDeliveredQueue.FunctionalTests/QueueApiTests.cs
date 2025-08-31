@@ -8,8 +8,8 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-using PushDeliveredQueue.Core.Models;
 using PushDeliveredQueue.API.Dtos;
+using PushDeliveredQueue.Core.Models;
 
 using Xunit;
 

@@ -6,7 +6,7 @@ namespace PushDeliveredQueue.API.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class ReplayQueueController(SubscribableQueue queue, ILogger<ReplayQueueController> logger) : ControllerBase
+public class ReplayQueueController(SubscribableQueue queue) : ControllerBase
 {
     [HttpPost("replayFrom")]
     public IActionResult ReplayFrom(Guid subscriberId, Guid messageId)

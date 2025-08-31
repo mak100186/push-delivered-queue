@@ -2,26 +2,17 @@ using PushDeliveredQueue.API.Dtos;
 
 namespace PushDeliveredQueue.UI.Services;
 
-public class QueueApiService
+public class QueueApiService(HttpClient httpClient, ILogger<QueueApiService> logger)
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<QueueApiService> _logger;
-
-    public QueueApiService(HttpClient httpClient, ILogger<QueueApiService> logger)
-    {
-        _httpClient = httpClient;
-        _logger = logger;
-    }
-
     public async Task<SubscribableQueueStateDto?> GetQueueStateAsync()
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<SubscribableQueueStateDto>("diagnostics/state");
+            return await httpClient.GetFromJsonAsync<SubscribableQueueStateDto>("diagnostics/state");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get queue state");
+            logger.LogError(ex, "Failed to get queue state");
             return null;
         }
     }
@@ -30,7 +21,7 @@ public class QueueApiService
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("SubscribaleQueue/enqueueSingle", payload);
+            var response = await httpClient.PostAsJsonAsync("SubscribaleQueue/enqueueSingle", payload);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<Guid>();
@@ -38,7 +29,7 @@ public class QueueApiService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to enqueue message");
+            logger.LogError(ex, "Failed to enqueue message");
         }
         return null;
     }
@@ -47,7 +38,7 @@ public class QueueApiService
     {
         try
         {
-            var response = await _httpClient.PostAsync($"SubscribaleQueue/enqueueMultiple?count={count}", null);
+            var response = await httpClient.PostAsync($"SubscribaleQueue/enqueueMultiple?count={count}", null);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<List<Guid>>();
@@ -55,7 +46,7 @@ public class QueueApiService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to enqueue multiple messages");
+            logger.LogError(ex, "Failed to enqueue multiple messages");
         }
         return null;
     }
@@ -64,7 +55,7 @@ public class QueueApiService
     {
         try
         {
-            var response = await _httpClient.PostAsync("SubscribaleQueue/subscribe", null);
+            var response = await httpClient.PostAsync("SubscribaleQueue/subscribe", null);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<Guid>();
@@ -72,7 +63,7 @@ public class QueueApiService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to subscribe");
+            logger.LogError(ex, "Failed to subscribe");
         }
         return null;
     }
@@ -81,12 +72,12 @@ public class QueueApiService
     {
         try
         {
-            var response = await _httpClient.PostAsync($"SubscribaleQueue/unsubscribe/{subscriberId}", null);
+            var response = await httpClient.PostAsync($"SubscribaleQueue/unsubscribe/{subscriberId}", null);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to unsubscribe");
+            logger.LogError(ex, "Failed to unsubscribe");
             return false;
         }
     }
@@ -95,40 +86,26 @@ public class QueueApiService
     {
         try
         {
-            var response = await _httpClient.PostAsync($"diagnostics/changePayload?messageId={messageId}&payload={Uri.EscapeDataString(newPayload)}", null);
+            var response = await httpClient.PostAsync($"diagnostics/changePayload?messageId={messageId}&payload={Uri.EscapeDataString(newPayload)}", null);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to change message payload");
+            logger.LogError(ex, "Failed to change message payload");
             return false;
         }
     }
-
-    public async Task<bool> ReplayFromAsync(Guid subscriberId, Guid messageId)
-    {
-        try
-        {
-            var response = await _httpClient.PostAsync($"ReplayQueue/replayFrom?subscriberId={subscriberId}&messageId={messageId}", null);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to replay from message");
-            return false;
-        }
-    }
-
+    
     public async Task<bool> ReplayAllDlqAsync(Guid subscriberId)
     {
         try
         {
-            var response = await _httpClient.PostAsync($"ReplayQueue/replayAllDlq?subscriberId={subscriberId}", null);
+            var response = await httpClient.PostAsync($"ReplayQueue/replayAllDlq?subscriberId={subscriberId}", null);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to replay all DLQ messages");
+            logger.LogError(ex, "Failed to replay all DLQ messages");
             return false;
         }
     }
@@ -137,12 +114,12 @@ public class QueueApiService
     {
         try
         {
-            var response = await _httpClient.PostAsync("ReplayQueue/replayAllSubscribers", null);
+            var response = await httpClient.PostAsync("ReplayQueue/replayAllSubscribers", null);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to replay all DLQ subscribers");
+            logger.LogError(ex, "Failed to replay all DLQ subscribers");
             return false;
         }
     }

@@ -79,13 +79,14 @@ public partial class SubscribableQueue
 
     public Guid Enqueue(string payload)
     {
-        var messageId = Guid.NewGuid();
         lock (_lock)
         {
-            _buffer.Add(new MessageEnvelope(messageId, DateTime.UtcNow, payload));
-        }
+            var messageId = Guid.NewGuid();
 
-        return messageId;
+            _buffer.Add(new MessageEnvelope(messageId, DateTime.UtcNow, payload));
+
+            return messageId;
+        }
     }
 
     public Guid Subscribe(IQueueEventHandler handler)

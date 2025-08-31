@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 
-using PushDeliveredQueue.Core;
 using PushDeliveredQueue.API.Handlers;
+using PushDeliveredQueue.Core;
 
 namespace PushDeliveredQueue.API.Controllers;
 [ApiController]
@@ -24,14 +24,6 @@ public class SubscribaleQueueController(SubscribableQueue queue, SubscribedMessa
         }
 
         return Ok(messageIds);
-    }
-
-    [HttpPost("enqueue")]
-    public ActionResult<Guid> Enqueue([FromBody] string payload)
-    {
-        var messageId = queue.Enqueue(payload);
-        logger.LogInformation("Enqueued: MessageId:[{MessageId}] Payload:[{Payload}]", messageId, payload);
-        return Ok(messageId);
     }
 
     [HttpPost("enqueueSingle")]

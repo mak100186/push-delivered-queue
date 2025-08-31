@@ -1,5 +1,5 @@
-using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.API.Handlers;
+using PushDeliveredQueue.AspNetCore.DependencyInjection;
 
 using Serilog;
 

@@ -1,5 +1,5 @@
-using PushDeliveredQueue.Core.Models;
 using PushDeliveredQueue.API.Dtos;
+using PushDeliveredQueue.Core.Models;
 
 namespace PushDeliveredQueue.API.Extensions;
 

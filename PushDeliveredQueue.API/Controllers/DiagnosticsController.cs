@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 
-using PushDeliveredQueue.Core;
 using PushDeliveredQueue.API.Dtos;
 using PushDeliveredQueue.API.Extensions;
+using PushDeliveredQueue.Core;
 
 namespace PushDeliveredQueue.API.Controllers;
 
