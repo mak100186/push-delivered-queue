@@ -21,10 +21,13 @@ A reactive push-based message queue system built for .NET 9.0, designed for real
 
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
+- [Running the Complete Application](#running-the-complete-application)
 - [Configuration](#configuration)
 - [API Reference](#api-reference)
 - [Examples](#examples)
 - [Testing](#testing)
+- [Performance Considerations](#performance-considerations)
+- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 
 ## 🏗️ Architecture
@@ -469,18 +472,72 @@ open http://localhost:7274
 - Messages are automatically pruned based on TTL
 - Each subscriber maintains an independent cursor
 - Background cleanup prevents memory leaks
+- Consider message size limits for high-throughput scenarios
 
 ### Concurrency
 
 - Thread-safe operations using locks where necessary
 - Concurrent subscriber management
 - Background processing for message delivery
+- Configurable concurrency levels for message processing
 
 ### Scalability
 
 - In-memory design for low-latency scenarios
 - Suitable for single-instance deployments
 - Consider external message brokers for distributed scenarios
+- Horizontal scaling through multiple queue instances
+
+### Best Practices
+
+- Monitor memory usage and adjust TTL settings accordingly
+- Use appropriate retry policies to balance reliability and performance
+- Consider message batching for high-volume scenarios
+- Implement proper error handling to prevent message loss
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### Connection Problems
+- **API not accessible**: Ensure the API is running on the correct port (7246)
+- **UI connection errors**: Verify the UI configuration points to the correct API URL
+- **CORS issues**: Check that the API allows requests from the UI origin
+
+#### Queue Issues
+- **Messages not being processed**: Check subscriber status and ensure handlers are properly registered
+- **High memory usage**: Review TTL settings and consider reducing message retention time
+- **DLQ growing rapidly**: Investigate message processing failures and adjust retry policies
+
+#### Performance Issues
+- **Slow message processing**: Monitor subscriber performance and consider scaling
+- **Memory leaks**: Ensure proper disposal of queue instances and subscribers
+- **High CPU usage**: Check for tight loops in message handlers
+
+### Debugging Tips
+
+1. **Enable detailed logging** in `appsettings.json`:
+   ```json
+   {
+     "Logging": {
+       "LogLevel": {
+         "PushDeliveredQueue": "Debug"
+       }
+     }
+   }
+   ```
+
+2. **Monitor queue state** using the UI dashboard or API endpoints
+
+3. **Check subscriber health** by reviewing cursor positions and DLQ contents
+
+4. **Verify configuration** using the validation features built into the library
+
+### Getting Help
+
+- Check the [API Reference](#api-reference) section for detailed method documentation
+- Review the [Examples](#examples) section for common usage patterns
+- Open an issue on GitHub with detailed error information and reproduction steps
 
 ## 🤝 Planned future enhancements
 
@@ -686,5 +743,60 @@ Use `OpenTelemetry` exporters for unified observability.
 
 By embracing these .NET 9/C# 13 idioms—`Lock` structs, `AsyncLock`, `BackgroundService`, `System.Diagnostics.Metrics`—and layering in clustering, admin APIs, dynamic tuning, and chaos testing, the queue will evolve from a single‐node in‐memory demo into a resilient, observable, and production‐grade messaging service.
 
+
+## 🤝 Contributing
+
+We welcome contributions to PushDeliveredQueue! Here's how you can help:
+
+### Development Setup
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/your-username/push-delivered-queue.git
+   cd push-delivered-queue
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   dotnet restore
+   ```
+
+3. **Run tests** to ensure everything works:
+   ```bash
+   dotnet test
+   ```
+
+### Contribution Guidelines
+
+- **Code Style**: Follow the existing code style and C# conventions
+- **Testing**: Add tests for new features and ensure all tests pass
+- **Documentation**: Update documentation for any API changes
+- **Commits**: Use descriptive commit messages and reference issues when applicable
+
+### Areas for Contribution
+
+- **Performance improvements**: Optimize memory usage, throughput, or latency
+- **New features**: Implement planned enhancements from the roadmap
+- **Bug fixes**: Help resolve issues reported by users
+- **Documentation**: Improve examples, tutorials, or API documentation
+- **Testing**: Add more test coverage or new test scenarios
+
+### Reporting Issues
+
+When reporting issues, please include:
+- .NET version and operating system
+- Steps to reproduce the problem
+- Expected vs actual behavior
+- Any relevant error messages or logs
+
+### Pull Request Process
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes and add tests
+4. Ensure all tests pass (`dotnet test`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
 
 **Built with ❤️ for .NET developers who need reliable, real-time message processing.**
