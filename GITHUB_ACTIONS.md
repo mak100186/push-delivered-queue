@@ -17,24 +17,24 @@ This project includes several GitHub Actions workflows to automate testing and C
 ### 2. Unit Tests (`unit-tests.yml`)
 **Purpose**: Dedicated workflow for unit tests with coverage
 - **Triggers**: Push to main/develop, Pull Requests
-- **Runs**: Ubuntu, Windows
+- **Runs**: Ubuntu
 - **Features**:
-  - Cross-platform unit testing
+  - Unit testing with coverage
   - Code coverage reporting
   - Test result artifacts
   - Coverage report generation
-- **Duration**: ~3-5 minutes
+- **Duration**: ~2-3 minutes
 
 ### 3. Integration Tests (`test.yml`)
-**Purpose**: Comprehensive integration testing across platforms
+**Purpose**: Comprehensive integration testing
 - **Triggers**: Push to main/develop, Pull Requests
-- **Runs**: Ubuntu, Windows
+- **Runs**: Ubuntu
 - **Features**:
-  - Cross-platform integration testing
+  - Integration testing
   - Code coverage reporting
   - Test result artifacts
   - Coverage report generation
-- **Duration**: ~4-6 minutes
+- **Duration**: ~3-4 minutes
 
 ### 4. Functional Tests (`functional-tests.yml`)
 **Purpose**: Dedicated workflow for functional tests
