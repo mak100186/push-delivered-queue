@@ -1,3 +1,6 @@
+using PushDeliveredQueue.AspNetCore.DependencyInjection;
+using PushDeliveredQueue.Sample.Handlers;
+using PushDeliveredQueue.UI.Services;
 using PushDeliveredQueue.UI.Components;
 
 namespace PushDeliveredQueue.UI;
@@ -10,6 +13,20 @@ public class Program
         // Add services to the container.
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
+
+        // Add queue services
+        builder.Services.AddSubscribableQueueWithOptions(builder.Configuration);
+        builder.Services.AddScoped<SubscribedMessageHandler>();
+
+        // Add HTTP client for API communication
+        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7001/";
+        builder.Services.AddHttpClient<QueueApiService>(client =>
+        {
+            client.BaseAddress = new Uri(apiBaseUrl);
+        });
+
+        // Add queue monitoring service
+        builder.Services.AddScoped<QueueMonitoringService>();
 
         var app = builder.Build();
 

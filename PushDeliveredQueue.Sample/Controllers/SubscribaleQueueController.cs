@@ -26,8 +26,16 @@ public class SubscribaleQueueController(SubscribableQueue queue, SubscribedMessa
         return Ok(messageIds);
     }
 
-    [HttpPost("enqueueSingle")]
+    [HttpPost("enqueue")]
     public ActionResult<Guid> Enqueue([FromBody] string payload)
+    {
+        var messageId = queue.Enqueue(payload);
+        logger.LogInformation("Enqueued: MessageId:[{MessageId}] Payload:[{Payload}]", messageId, payload);
+        return Ok(messageId);
+    }
+
+    [HttpPost("enqueueSingle")]
+    public ActionResult<Guid> EnqueueSingle([FromBody] string payload)
     {
         var messageId = queue.Enqueue(payload);
         logger.LogInformation("Enqueued: MessageId:[{MessageId}] Payload:[{Payload}]", messageId, payload);

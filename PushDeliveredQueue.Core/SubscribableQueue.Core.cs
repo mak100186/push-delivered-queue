@@ -24,6 +24,9 @@ public partial class SubscribableQueue
 
     public SubscribableQueue(IOptions<SubscribableQueueOptions> options, ILogger<SubscribableQueue> logger)
     {
+        ArgumentNullException.ThrowIfNull(options, nameof(options));
+        ArgumentNullException.ThrowIfNull(logger, nameof(logger));
+
         _ttl = options.Value.Ttl;
         _logger = logger;
 
@@ -87,6 +90,8 @@ public partial class SubscribableQueue
 
     public Guid Subscribe(IQueueEventHandler handler)
     {
+        ArgumentNullException.ThrowIfNull(handler, nameof(handler));
+
         var subscriberId = Guid.NewGuid();
         var cursor = new CursorState
         {

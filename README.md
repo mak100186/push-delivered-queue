@@ -159,6 +159,44 @@ public class MessageController : ControllerBase
 }
 ```
 
+## 🚀 Running the Complete Application
+
+### Option A: Using the Launcher (Recommended)
+
+```bash
+# Launch both API and UI simultaneously
+dotnet run --project PushDeliveredQueue.Launcher
+```
+
+### Option B: Using Scripts
+
+**PowerShell:**
+```powershell
+.\launch-both.ps1
+```
+
+**Batch (Windows):**
+```cmd
+launch-both.bat
+```
+
+### Option C: Manual Launch
+
+```bash
+# Terminal 1: Start the API
+cd PushDeliveredQueue.Sample
+dotnet run
+
+# Terminal 2: Start the UI
+cd PushDeliveredQueue.UI
+dotnet run
+```
+
+### Access the Applications
+
+- **API**: https://localhost:7001 (with Swagger documentation)
+- **UI**: https://localhost:5001 (Queue monitoring dashboard)
+
 ## ⚙️ Configuration
 
 ### SubscribableQueueOptions

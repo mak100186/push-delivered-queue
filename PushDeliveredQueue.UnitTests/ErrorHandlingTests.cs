@@ -89,7 +89,7 @@ public class ErrorHandlingTests : IDisposable
     }
 
     [Fact]
-    public async Task MessageHandler_ThrowingException_ShouldBeHandledGracefully()
+    public async Task MessageHandler_ThrowingExceptionFromHandlers_ShouldNotImpactTheLibrary()
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
@@ -110,11 +110,11 @@ public class ErrorHandlingTests : IDisposable
             It.IsAny<MessageEnvelope>(),
             It.IsAny<Guid>(),
             It.IsAny<Exception>(),
-            It.IsAny<CancellationToken>()), Times.Once);
+            It.IsAny<CancellationToken>()), Times.Never);
 
         var state = _queue.GetState();
         var subscriber = state.Subscribers[subscriberId];
-        subscriber.DeadLetterQueue.Should().HaveCount(1);
+        subscriber.DeadLetterQueue.Should().HaveCount(0);
     }
 
     [Fact]

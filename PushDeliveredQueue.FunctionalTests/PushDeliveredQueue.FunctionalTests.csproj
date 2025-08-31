@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <XunitDisableParallelization>true</XunitDisableParallelization>
+    <XunitMaxParallelThreads>1</XunitMaxParallelThreads>
   </PropertyGroup>
 
   <ItemGroup>

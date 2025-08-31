@@ -114,7 +114,7 @@ public partial class SubscribableQueue
     {
         foreach (var subscriberId in _subscribers.Keys)
         {
-            Task.Run(async () => await ReplayAllDlqMessagesAsync(subscriberId, cancellationToken));
+            Task.Run(async () => await ReplayAllDlqMessagesAsync(subscriberId, cancellationToken), cancellationToken);
         }
     }
 

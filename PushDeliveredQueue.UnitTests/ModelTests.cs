@@ -72,9 +72,9 @@ public class ModelTests
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -166,15 +166,15 @@ public class ModelTests
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) => { msg.Should().Be(envelope); })
-               .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) => { msg.Should().Be(envelope); })
+                .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
         var result = handler.Object.OnMessageReceiveAsync
-            (envelope, Guid.NewGuid()).Result;
+            (envelope, Guid.NewGuid(), CancellationToken.None).Result;
 
         // Assert
         result.Should().Be(DeliveryResult.Ack);
@@ -186,13 +186,13 @@ public class ModelTests
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Nack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
-        var result = handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid()).Result;
+        var result = handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid(), CancellationToken.None).Result;
 
         // Assert
         result.Should().Be(DeliveryResult.Nack);
@@ -204,14 +204,14 @@ public class ModelTests
         // Arrange
         var envelope = new MessageEnvelope(Guid.NewGuid(), DateTime.UtcNow, "test");
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) => { throw new InvalidOperationException("Test exception"); })
-               .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) => { throw new InvalidOperationException("Test exception"); })
+                .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act & Assert
-        var action = () => handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid()).Result;
+        var action = () => handler.Object.OnMessageReceiveAsync(envelope, Guid.NewGuid(), CancellationToken.None).Result;
         action.Should().Throw<InvalidOperationException>().WithMessage("Test exception");
     }
 

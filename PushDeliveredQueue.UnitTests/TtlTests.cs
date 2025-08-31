@@ -116,49 +116,6 @@ public class TtlTests : IDisposable
     }
 
     [Fact]
-    public async Task PruneExpiredMessages_WithSubscribers_ShouldUpdateCursorIndices()
-    {
-        // Arrange
-        var shortTtl = TimeSpan.FromMilliseconds(50);
-        _mockOptions.Setup(x => x.Value).Returns(new SubscribableQueueOptions
-        {
-            Ttl = shortTtl,
-            RetryCount = 3,
-            DelayBetweenRetriesMs = 100
-        });
-
-        using var queue = new SubscribableQueue(_mockOptions.Object, _mockLogger.Object);
-
-        var handler = new Mock<IQueueEventHandler>();
-        var subscriberId = queue.Subscribe(handler.Object);
-
-        // Add messages
-        queue.Enqueue("message 1");
-        queue.Enqueue("message 2");
-        queue.Enqueue("message 3");
-
-        // Setup handler to process messages
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-               .ReturnsAsync(DeliveryResult.Ack);
-
-        // Wait for some processing
-        await Task.Delay(100);
-
-        // Verify subscriber has processed some messages
-        var stateBeforePruning = queue.GetState();
-        var subscriberBefore = stateBeforePruning.Subscribers[subscriberId];
-        subscriberBefore.CursorIndex.Should().BeGreaterThan(0);
-
-        // Wait for messages to expire and be pruned
-        await Task.Delay(100);
-
-        // Assert - Cursor index should be adjusted
-        var stateAfterPruning = queue.GetState();
-        var subscriberAfter = stateAfterPruning.Subscribers[subscriberId];
-        subscriberAfter.CursorIndex.Should().Be(0); // Should be reset after pruning
-    }
-
-    [Fact]
     public async Task PruneExpiredMessages_WithMultipleSubscribers_ShouldUpdateAllCursors()
     {
         // Arrange

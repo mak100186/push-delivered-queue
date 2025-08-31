@@ -1,0 +1,379 @@
+@page "/queue-monitor"
+@using PushDeliveredQueue.UI.Services
+@using PushDeliveredQueue.Sample.Dtos
+@inject QueueMonitoringService MonitoringService
+@inject QueueApiService ApiService
+@inject ILogger<QueueMonitor> Logger
+@implements IDisposable
+
+<PageTitle>Queue Monitor - PushDeliveredQueue</PageTitle>
+
+<div class="container-fluid">
+    <h1 class="mb-4">Queue Monitor</h1>
+
+    <!-- Monitoring Controls -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Monitoring Controls</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 mb-3">
+                        @if (!MonitoringService.IsMonitoring)
+                        {
+                            <button class="btn btn-success" @onclick="StartMonitoring">
+                                <i class="fas fa-play"></i> Start Monitoring
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-danger" @onclick="StopMonitoring">
+                                <i class="fas fa-stop"></i> Stop Monitoring
+                            </button>
+                        }
+                        <button class="btn btn-primary" @onclick="RefreshNow">
+                            <i class="fas fa-sync"></i> Refresh Now
+                        </button>
+                    </div>
+                    @if (MonitoringService.IsMonitoring)
+                    {
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock"></i> 
+                            Last refresh: @(MonitoringService.LastRefresh.ToString("HH:mm:ss"))
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-outline-primary" @onclick="Subscribe">
+                            <i class="fas fa-plus"></i> Subscribe
+                        </button>
+                        <button class="btn btn-outline-warning" @onclick="ReplayAllDlq">
+                            <i class="fas fa-redo"></i> Replay All DLQ
+                        </button>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Message payload" @bind="newMessagePayload" />
+                        <button class="btn btn-outline-secondary" @onclick="EnqueueMessage">
+                            <i class="fas fa-plus"></i> Enqueue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (MonitoringService.CurrentState != null)
+    {
+        <!-- Queue Statistics -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Buffer Messages</h5>
+                        <h2>@MonitoringService.CurrentState.Buffer.Count</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Subscribers</h5>
+                        <h2>@MonitoringService.CurrentState.Subscribers.Count</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Total DLQ Messages</h5>
+                        <h2>@GetTotalDlqMessages()</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-info text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending Messages</h5>
+                        <h2>@GetTotalPendingMessages()</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Buffer -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Message Buffer</h5>
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => EnqueueMultiple(10)">
+                            Add 10 Messages
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (MonitoringService.CurrentState.Buffer.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Payload</th>
+                                            <th>Expires In</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var message in MonitoringService.CurrentState.Buffer)
+                                        {
+                                            <tr>
+                                                <td><code>@message.Id.ToString("N")[..8]...</code></td>
+                                                <td>@message.Payload</td>
+                                                <td>@message.ExpiresIn</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-warning" @onclick="() => ShowEditModal(message.Id)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p>No messages in buffer</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscribers -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Subscribers</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (MonitoringService.CurrentState.Subscribers.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Subscriber ID</th>
+                                            <th>Status</th>
+                                            <th>Pending Messages</th>
+                                            <th>DLQ Messages</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var subscriber in MonitoringService.CurrentState.Subscribers)
+                                        {
+                                            <tr>
+                                                <td><code>@subscriber.Key.ToString("N")[..8]...</code></td>
+                                                <td>
+                                                    @if (subscriber.Value.IsBlocked)
+                                                    {
+                                                        <span class="badge bg-danger">Blocked</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-success">Active</span>
+                                                    }
+                                                </td>
+                                                <td>@subscriber.Value.PendingMessageCount</td>
+                                                <td>@subscriber.Value.DeadLetterQueue.Count</td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        @if (subscriber.Value.DeadLetterQueue.Any())
+                                                        {
+                                                            <button class="btn btn-outline-warning" @onclick="() => ReplayDlq(subscriber.Key)">
+                                                                <i class="fas fa-redo"></i> Replay DLQ
+                                                            </button>
+                                                        }
+                                                        <button class="btn btn-outline-danger" @onclick="() => Unsubscribe(subscriber.Key)">
+                                                            <i class="fas fa-times"></i> Unsubscribe
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted">
+                                <i class="fas fa-users fa-3x mb-3"></i>
+                                <p>No active subscribers</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3">Loading queue state...</p>
+        </div>
+    }
+
+    <!-- Message Edit Modal -->
+    <MessageEditModal 
+        IsVisible="@isEditModalVisible" 
+        MessageId="@editingMessageId" 
+        NewPayload="@editingPayload"
+        IsVisibleChanged="@((bool visible) => isEditModalVisible = visible)"
+        OnSave="@SavePayloadChange" />
+</div>
+
+@code {
+    private string newMessagePayload = "";
+    private string editingMessageId = "";
+    private string editingPayload = "";
+    private bool isEditModalVisible = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        MonitoringService.StateChanged += OnStateChanged;
+        await MonitoringService.StartMonitoringAsync();
+    }
+
+    private void OnStateChanged(SubscribableQueueStateDto? state)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task StartMonitoring()
+    {
+        await MonitoringService.StartMonitoringAsync();
+    }
+
+    private void StopMonitoring()
+    {
+        MonitoringService.StopMonitoring();
+    }
+
+    private async Task RefreshNow()
+    {
+        await MonitoringService.RefreshStateAsync();
+    }
+
+    private async Task Subscribe()
+    {
+        var subscriberId = await ApiService.SubscribeAsync();
+        if (subscriberId.HasValue)
+        {
+            Logger.LogInformation("Subscribed with ID: {SubscriberId}", subscriberId);
+        }
+    }
+
+    private async Task Unsubscribe(Guid subscriberId)
+    {
+        var success = await ApiService.UnsubscribeAsync(subscriberId);
+        if (success)
+        {
+            Logger.LogInformation("Unsubscribed ID: {SubscriberId}", subscriberId);
+        }
+    }
+
+    private async Task EnqueueMessage()
+    {
+        if (string.IsNullOrWhiteSpace(newMessagePayload)) return;
+
+        var messageId = await ApiService.EnqueueMessageAsync(newMessagePayload);
+        if (messageId.HasValue)
+        {
+            newMessagePayload = "";
+            Logger.LogInformation("Enqueued message: {MessageId}", messageId);
+        }
+    }
+
+    private async Task EnqueueMultiple(int count)
+    {
+        var messageIds = await ApiService.EnqueueMultipleMessagesAsync(count);
+        if (messageIds != null)
+        {
+            Logger.LogInformation("Enqueued {Count} messages", messageIds.Count);
+        }
+    }
+
+    private void ShowEditModal(Guid messageId)
+    {
+        editingMessageId = messageId.ToString();
+        editingPayload = "";
+        isEditModalVisible = true;
+        StateHasChanged();
+    }
+
+    private async Task SavePayloadChange(string newPayload)
+    {
+        if (string.IsNullOrWhiteSpace(editingMessageId) || !Guid.TryParse(editingMessageId, out var messageId))
+            return;
+
+        var success = await ApiService.ChangeMessagePayloadAsync(messageId, newPayload);
+        if (success)
+        {
+            editingMessageId = "";
+            editingPayload = "";
+            Logger.LogInformation("Changed payload for message: {MessageId}", messageId);
+        }
+    }
+
+    private async Task ReplayDlq(Guid subscriberId)
+    {
+        var success = await ApiService.ReplayAllDlqAsync(subscriberId);
+        if (success)
+        {
+            Logger.LogInformation("Replayed DLQ for subscriber: {SubscriberId}", subscriberId);
+        }
+    }
+
+    private async Task ReplayAllDlq()
+    {
+        var success = await ApiService.ReplayAllDlqSubscribersAsync();
+        if (success)
+        {
+            Logger.LogInformation("Replayed all DLQ subscribers");
+        }
+    }
+
+    private int GetTotalDlqMessages()
+    {
+        return MonitoringService.CurrentState?.Subscribers.Values.Sum(s => s.DeadLetterQueue.Count) ?? 0;
+    }
+
+    private int GetTotalPendingMessages()
+    {
+        return MonitoringService.CurrentState?.Subscribers.Values.Sum(s => s.PendingMessageCount) ?? 0;
+    }
+
+    public void Dispose()
+    {
+        MonitoringService.StateChanged -= OnStateChanged;
+    }
+}

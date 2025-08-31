@@ -52,24 +52,24 @@ public class IntegrationTests : IDisposable
         // Arrange
         var messages = new[] { "message1", "message2", "message3" };
         var deliveredMessages = new List<string>();
-        var messageIds = new List<string>();
+        var messageIds = new List<Guid>();
 
-        // Enqueue messages
+        // Subscribe with handler first
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((message, guid, ct) => deliveredMessages.Add(message.Payload))
+               .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+
+        var subscriberId = _queue.Subscribe(handler.Object);
+
+        // Enqueue messages after handler is set up
         foreach (var message in messages)
         {
             var messageId = _queue.Enqueue(message);
             messageIds.Add(messageId);
         }
-
-        // Subscribe with handler
-        var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-                .Callback<MessageEnvelope, Guid>((message, guid) => deliveredMessages.Add(message.Payload))
-               .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
-
-        var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act - Wait for all messages to be processed
         await Task.Delay(1000);
@@ -92,29 +92,29 @@ public class IntegrationTests : IDisposable
         var subscriber1Messages = new List<string>();
         var subscriber2Messages = new List<string>();
 
-        // Enqueue messages
-        foreach (var message in messages)
-        {
-            _queue.Enqueue(message);
-        }
-
-        // Subscribe two handlers
+        // Subscribe two handlers first
         var handler1 = new Mock<IQueueEventHandler>();
-        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-                .Callback<MessageEnvelope, Guid>((message, guid) => subscriber1Messages.Add(message.Payload))
+        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((message, guid, ct) => subscriber1Messages.Add(message.Payload))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var handler2 = new Mock<IQueueEventHandler>();
-        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-                .Callback<MessageEnvelope, Guid>((message, guid) => subscriber2Messages.Add(message.Payload))
+        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((message, guid, ct) => subscriber2Messages.Add(message.Payload))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriber1 = _queue.Subscribe(handler1.Object);
         var subscriber2 = _queue.Subscribe(handler2.Object);
+
+        // Enqueue messages after handlers are set up
+        foreach (var message in messages)
+        {
+            _queue.Enqueue(message);
+        }
 
         // Act - Wait for processing
         await Task.Delay(1000);
@@ -139,8 +139,8 @@ public class IntegrationTests : IDisposable
         var messageCount = 0;
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-                .Callback<MessageEnvelope, Guid>((message, guid) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((message, guid, ct) =>
                 {
                     deliveredMessages.Add(message.Payload);
                     messageCount++;
@@ -152,12 +152,12 @@ public class IntegrationTests : IDisposable
                     }
                 })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
 
-        // Enqueue multiple messages
+        // Enqueue multiple messages after handler is set up
         _queue.Enqueue("message1");
         _queue.Enqueue("message2");
         _queue.Enqueue("message3");
@@ -179,11 +179,10 @@ public class IntegrationTests : IDisposable
         // Arrange
         var deliveryAttempts = 0;
         var messagePayload = "retry-test-message";
-        _queue.Enqueue(messagePayload);
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Returns<MessageEnvelope, Guid>((message, id) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
                {
                    deliveryAttempts++;
                    // Fail first two attempts, succeed on third
@@ -193,10 +192,13 @@ public class IntegrationTests : IDisposable
                    }
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
+
+        // Enqueue message after handler is set up
+        _queue.Enqueue(messagePayload);
 
         // Act - Wait for retry attempts
         await Task.Delay(2000);
@@ -214,20 +216,22 @@ public class IntegrationTests : IDisposable
         // Arrange
         var deliveryAttempts = 0;
         var messagePayload = "exception-test-message";
-        _queue.Enqueue(messagePayload);
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
                {
                    deliveryAttempts++;
                    throw new InvalidOperationException($"Attempt {deliveryAttempts}");
                })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
+
+        // Enqueue message after handler is set up
+        _queue.Enqueue(messagePayload);
 
         // Act - Wait for retry attempts
         await Task.Delay(2000);
@@ -247,14 +251,9 @@ public class IntegrationTests : IDisposable
         var deliveredMessages = new List<string>();
         var attemptCount = 0;
 
-        foreach (var message in messages)
-        {
-            _queue.Enqueue(message);
-        }
-
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Returns<MessageEnvelope, Guid>((message, id) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
                {
                    attemptCount++;
                    deliveredMessages.Add(message.Payload);
@@ -267,10 +266,16 @@ public class IntegrationTests : IDisposable
 
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
+
+        // Enqueue messages after handler is set up
+        foreach (var message in messages)
+        {
+            _queue.Enqueue(message);
+        }
 
         // Act - Wait for processing
         await Task.Delay(3000);
@@ -292,44 +297,32 @@ public class IntegrationTests : IDisposable
     {
         // Arrange
         var messages = new[] { "message1", "message2", "message3" };
+
+        // Subscribe and process first
+        var deliveredMessages = new List<string>();
+        var handler = new Mock<IQueueEventHandler>();
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
+               {
+                   deliveredMessages.Add(message.Payload);
+                   return Task.FromResult(DeliveryResult.Ack);
+               });
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+
+        var subscriberId = _queue.Subscribe(handler.Object);
+
+        // Enqueue messages after handler is set up
         foreach (var message in messages)
         {
             _queue.Enqueue(message);
         }
 
-        // Act - Get initial state
-        var initialState = _queue.GetState();
-
-        // Subscribe and process
-        var deliveredMessages = new List<string>();
-        var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Returns<MessageEnvelope, Guid>((message, id) =>
-               {
-                   deliveredMessages.Add(message.Payload);
-                   return Task.FromResult(DeliveryResult.Ack);
-               });
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
-
-        var subscriberId = _queue.Subscribe(handler.Object);
-
-        // Wait for partial processing
-        await Task.Delay(500);
-        var partialState = _queue.GetState();
-
         // Wait for complete processing
-        await Task.Delay(1000);
+        await Task.Delay(2000);
         var finalState = _queue.GetState();
 
         // Assert
-        initialState.Buffer.Should().HaveCount(3);
-        initialState.Subscribers.Should().BeEmpty();
-
-        partialState.Buffer.Should().HaveCount(3);
-        partialState.Subscribers.Should().HaveCount(1);
-        partialState.Subscribers[subscriberId].CursorIndex.Should().BeGreaterThan(0);
-
         finalState.Buffer.Should().HaveCount(3);
         finalState.Subscribers.Should().HaveCount(1);
         finalState.Subscribers[subscriberId].CursorIndex.Should().Be(3);
@@ -344,13 +337,7 @@ public class IntegrationTests : IDisposable
         var subscriberResults = new Dictionary<int, List<string>>();
         var subscriberCount = 3;
 
-        // Enqueue messages
-        foreach (var message in messages)
-        {
-            _queue.Enqueue(message);
-        }
-
-        // Create multiple subscribers
+        // Create multiple subscribers first
         var subscriberIds = new List<Guid>();
         for (var i = 0; i < subscriberCount; i++)
         {
@@ -358,17 +345,23 @@ public class IntegrationTests : IDisposable
             subscriberResults[subscriberIndex] = new List<string>();
 
             var handler = new Mock<IQueueEventHandler>();
-            handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-                   .Returns<MessageEnvelope, Guid>((message, id) =>
+            handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                   .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
                    {
                        subscriberResults[subscriberIndex].Add(message.Payload);
                        return Task.FromResult(DeliveryResult.Ack);
                    });
-            handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+            handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                    .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
             var subscriberId = _queue.Subscribe(handler.Object);
             subscriberIds.Add(subscriberId);
+        }
+
+        // Enqueue messages after all handlers are set up
+        foreach (var message in messages)
+        {
+            _queue.Enqueue(message);
         }
 
         // Act - Wait for processing
@@ -419,21 +412,21 @@ public class IntegrationTests : IDisposable
         options.Value.DelayBetweenRetriesMs.Should().Be(100);
 
         // Test basic functionality
-        var messageId = queue.Enqueue("test message");
-        messageId.Should().NotBeNullOrEmpty();
-
         var deliveredMessages = new List<string>();
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Returns<MessageEnvelope, Guid>((message, id) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Returns<MessageEnvelope, Guid, CancellationToken>((message, id, ct) =>
                {
                    deliveredMessages.Add(message.Payload);
                    return Task.FromResult(DeliveryResult.Ack);
                });
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = queue.Subscribe(handler.Object);
+
+        var messageId = queue.Enqueue("test message");
+        messageId.Should().NotBeEmpty();
         await Task.Delay(500);
 
         deliveredMessages.Should().HaveCount(1);

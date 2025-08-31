@@ -101,10 +101,10 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
 
         // Act
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -118,10 +118,10 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
 
         // Act
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -138,16 +138,16 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var handler1 = new Mock<IQueueEventHandler>();
-        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
 
         var handler2 = new Mock<IQueueEventHandler>();
-        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
 
         // Act
         var subscriber1 = _queue.Subscribe(handler1.Object);
@@ -165,10 +165,10 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
         var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act
@@ -199,14 +199,14 @@ public class SubscribableQueueTests : IDisposable
         var deliveredMessages = new List<MessageEnvelope>();
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
                {
                    deliveredMessages.Add(msg);
                })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .ReturnsAsync(PostMessageFailedBehavior.Commit);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
+               .ReturnsAsync(PostMessageFailedBehavior.RetryOnceThenDLQ);
 
         // Act
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -217,7 +217,7 @@ public class SubscribableQueueTests : IDisposable
         // Assert
         deliveredMessages.Should().HaveCount(1);
         deliveredMessages[0].Payload.Should().Be(messagePayload);
-        deliveredMessages[0].Id.ToString().Should().Be(messageId);
+        deliveredMessages[0].Id.Should().Be(messageId);
 
         var state = _queue.GetState();
         state.Subscribers[subscriberId].CursorIndex.Should().Be(1);
@@ -233,13 +233,13 @@ public class SubscribableQueueTests : IDisposable
         var deliveredMessages = new List<MessageEnvelope>();
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
-               {
-                   deliveredMessages.Add(msg);
-               })
-               .ReturnsAsync(DeliveryResult.Nack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
+                {
+                    deliveredMessages.Add(msg);
+                })
+                .ReturnsAsync(DeliveryResult.Nack);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -265,14 +265,14 @@ public class SubscribableQueueTests : IDisposable
         var deliveryAttempts = 0;
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
-               {
-                   deliveryAttempts++;
-                   throw new InvalidOperationException("Simulated error");
-               })
-               .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+                handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
+                {
+                    deliveryAttempts++;
+                    throw new InvalidOperationException("Simulated error");
+                })
+                .ReturnsAsync(DeliveryResult.Ack);
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -301,13 +301,13 @@ public class SubscribableQueueTests : IDisposable
         }
 
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
                {
                    deliveredMessages.Add(msg.Payload);
                })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -332,24 +332,24 @@ public class SubscribableQueueTests : IDisposable
         var deliveredToSubscriber2 = new List<MessageEnvelope>();
 
         var handler1 = new Mock<IQueueEventHandler>();
-        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
+        handler1.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
                {
                    deliveredToSubscriber1.Add(msg);
                })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler1.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
 
         var handler2 = new Mock<IQueueEventHandler>();
-        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
-               .Callback<MessageEnvelope, Guid>((msg, id) =>
+        handler2.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+               .Callback<MessageEnvelope, Guid, CancellationToken>((msg, id, ct) =>
                {
                    deliveredToSubscriber2.Add(msg);
                })
                .ReturnsAsync(DeliveryResult.Ack);
-        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler2.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         // Act
@@ -389,9 +389,9 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
@@ -412,20 +412,19 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var messages = new[] { "message1", "message2", "message3" };
-        foreach (var message in messages)
-        {
-            _queue.Enqueue(message);
-        }
-
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);
 
         // Act
+        foreach (var message in messages)
+        {
+            _queue.Enqueue(message);
+        }
         var state = _queue.GetState();
 
         // Assert
@@ -437,9 +436,9 @@ public class SubscribableQueueTests : IDisposable
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
-        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(DeliveryResult.Ack);
-        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>()))
+        handler.Setup(h => h.OnMessageFailedHandlerAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<Exception>(), It.IsAny<CancellationToken>()))
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = _queue.Subscribe(handler.Object);

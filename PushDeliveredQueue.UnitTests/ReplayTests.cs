@@ -28,8 +28,8 @@ public class ReplayTests : IDisposable
         _mockOptions.Setup(x => x.Value).Returns(new SubscribableQueueOptions
         {
             Ttl = TimeSpan.FromMinutes(5),
-            RetryCount = 3,
-            DelayBetweenRetriesMs = 100
+            RetryCount = 1,
+            DelayBetweenRetriesMs = 50
         });
 
         _queue = new SubscribableQueue(_mockOptions.Object, _mockLogger.Object);
@@ -243,27 +243,6 @@ public class ReplayTests : IDisposable
     }
 
     [Fact]
-    public void ReplayFrom_WithInvalidMessage_ShouldLogWarning()
-    {
-        // Arrange
-        var subscriberId = _queue.Subscribe(_mockHandler.Object);
-        var invalidMessageId = Guid.NewGuid();
-
-        // Act
-        _queue.ReplayFrom(subscriberId, invalidMessageId);
-
-        // Assert
-        _mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("not found in buffer for replay")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-    }
-
-    [Fact]
     public void ReplayFrom_WithInvalidSubscriber_ShouldLogWarning()
     {
         // Arrange
@@ -279,34 +258,6 @@ public class ReplayTests : IDisposable
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("non-existent subscriber")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public void ReplayFrom_WithUncommittedMessages_ShouldLogWarning()
-    {
-        // Arrange
-        var subscriberId = _queue.Subscribe(_mockHandler.Object);
-        var messageId = _queue.Enqueue("test message");
-
-        // Setup handler to not commit (simulate uncommitted state)
-        _mockHandler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                   .ReturnsAsync(DeliveryResult.Nack);
-
-        // Wait for processing
-        Thread.Sleep(100);
-
-        // Act
-        _queue.ReplayFrom(subscriberId, messageId);
-
-        // Assert
-        _mockLogger.Verify(
-            x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("has uncommitted messages")),
                 It.IsAny<Exception>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);

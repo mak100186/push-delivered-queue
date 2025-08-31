@@ -1,0 +1,48 @@
+@if (IsVisible)
+{
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Message Payload</h5>
+                    <button type="button" class="btn-close" @onclick="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="messageId" class="form-label">Message ID</label>
+                        <input type="text" class="form-control" id="messageId" value="@MessageId" readonly />
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPayload" class="form-label">New Payload</label>
+                        <textarea class="form-control" id="newPayload" rows="3" @bind="NewPayload" placeholder="Enter new message payload"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                    <button type="button" class="btn btn-primary" @onclick="Save">Save Changes</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string MessageId { get; set; } = "";
+    [Parameter] public string NewPayload { get; set; } = "";
+    [Parameter] public EventCallback<bool> IsVisibleChanged { get; set; }
+    [Parameter] public EventCallback<string> OnSave { get; set; }
+
+    private async Task Close()
+    {
+        IsVisible = false;
+        await IsVisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task Save()
+    {
+        await OnSave.InvokeAsync(NewPayload);
+        await Close();
+    }
+}
