@@ -39,14 +39,14 @@ public class Program
 
             // Check if --no-build flag is provided
             var noBuild = args.Contains("--no-build");
-            
+
             // Check for configuration (default to Debug)
             var buildConfiguration = "Debug";
             if (args.Contains("--configuration") || args.Contains("-c"))
             {
                 var configIndex = Array.IndexOf(args, "--configuration");
                 if (configIndex == -1) configIndex = Array.IndexOf(args, "-c");
-                
+
                 if (configIndex >= 0 && configIndex + 1 < args.Length)
                 {
                     buildConfiguration = args[configIndex + 1];
@@ -93,7 +93,7 @@ public class Program
     {
         // Get the directory where the launcher executable is located
         var currentDir = Directory.GetCurrentDirectory();
-        
+
         // If we're in the launcher's bin directory, go up to the launcher project directory
         if (currentDir.Contains("PushDeliveredQueue.Launcher\\bin"))
         {
@@ -105,13 +105,13 @@ public class Program
             }
             return launcherDir;
         }
-        
+
         // If we're already in the launcher project directory
         if (File.Exists(Path.Combine(currentDir, "PushDeliveredQueue.Launcher.csproj")))
         {
             return currentDir;
         }
-        
+
         // If we're in the solution root, go to the launcher directory
         if (File.Exists(Path.Combine(currentDir, "PushDeliveredQueue.sln")))
         {
@@ -121,7 +121,7 @@ public class Program
                 return launcherDir;
             }
         }
-        
+
         throw new InvalidOperationException("Could not determine launcher directory");
     }
 }
@@ -135,13 +135,13 @@ public class ProjectLauncher
     public ProjectLauncher(IConfiguration configuration)
     {
         _configuration = configuration;
-        
+
         // Create logger factory with Serilog
         var loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.AddSerilog(dispose: true);
         });
-        
+
         _logger = loggerFactory.CreateLogger<ProjectLauncher>();
     }
 
@@ -182,21 +182,127 @@ public class ProjectLauncher
 
     private async Task CheckPortAvailabilityAsync(string url, string projectName)
     {
+        var uri = new Uri(url);
+        var port = uri.Port;
+
+        // Check if port is occupied
+        if (await IsPortOccupiedAsync(port))
+        {
+            _logger.LogWarning("Port {Port} is occupied. Attempting to kill the process using it...", port, projectName);
+
+            // Try to kill the process using the port
+            await KillProcessUsingPortAsync(port, projectName);
+
+            // Wait a moment for the process to be killed
+            await Task.Delay(5000);
+
+            // Check again
+            if (await IsPortOccupiedAsync(port))
+            {
+                var errorMessage = $"Port {port} is still occupied after attempting to kill the process. {projectName} cannot start. Please manually free the port and try again.";
+                _logger.LogError(errorMessage);
+                throw new InvalidOperationException(errorMessage);
+            }
+            else
+            {
+                _logger.LogInformation("Port {Port} is now available for {ProjectName} after killing the previous process", port, projectName);
+            }
+        }
+        else
+        {
+            _logger.LogInformation("Port {Port} is available for {ProjectName}", port, projectName);
+        }
+    }
+
+    private async Task<bool> IsPortOccupiedAsync(int port)
+    {
         try
         {
-            var uri = new Uri(url);
-            var port = uri.Port;
-
             using var client = new TcpClient();
-            await client.ConnectAsync(uri.Host, port);
+            await client.ConnectAsync("127.0.0.1", port);
             client.Close();
-
-            _logger.LogWarning("Port {Port} is already in use by another process. {ProjectName} may fail to start.", port, projectName);
+            return true; // Port is occupied
         }
         catch (SocketException)
         {
-            _logger.LogInformation("Port {Port} is available for {ProjectName}", new Uri(url).Port, projectName);
+            return false; // Port is available
         }
+    }
+
+    private async Task KillProcessUsingPortAsync(int port, string projectName)
+    {
+        try
+        {
+            _logger.LogInformation("Attempting to kill process using port {Port} for {ProjectName}...", port, projectName);
+
+            // Get the process ID using the port
+            var processId = await GetProcessIdUsingPort(port);
+
+            if (processId.HasValue)
+            {
+                var process = Process.GetProcessById(processId.Value);
+                var processName = process.ProcessName;
+
+                _logger.LogInformation("Killing process {ProcessName} (PID: {ProcessId}) using port {Port}", processName, processId.Value, port);
+
+                process.Kill();
+                await process.WaitForExitAsync();
+
+                _logger.LogInformation("Successfully killed process {ProcessName} (PID: {ProcessId})", processName, processId.Value);
+            }
+            else
+            {
+                _logger.LogWarning("Could not find process using port {Port}", port);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to kill process using port {Port}", port);
+        }
+    }
+
+    private async Task<int?> GetProcessIdUsingPort(int port)
+    {
+        try
+        {
+            // Use netstat to find the process using the port
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "netstat",
+                Arguments = $"-ano | findstr :{port}",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null) return null;
+
+            var output = await process.StandardOutput.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            // Parse the output to find the PID
+            var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                // Look for lines containing the port number and LISTENING state
+                if (line.Contains($":{port}") && line.Contains("LISTENING"))
+                {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    // The PID is typically the last part of the line
+                    if (parts.Length > 0 && int.TryParse(parts[^1], out var pid))
+                    {
+                        return pid;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get process ID for port {Port}", port);
+        }
+
+        return null;
     }
 
     private async Task BuildProjectAsync(string projectPath, string projectName, string configuration)
@@ -264,7 +370,7 @@ public class ProjectLauncher
 
         // Construct path to the compiled DLL
         var dllPath = Path.Combine(fullProjectPath, "bin", configuration, "net9.0", $"{projectPath}.dll");
-        
+
         _logger.LogInformation("DLL path: {DllPath}", dllPath);
 
         // Check if DLL exists
@@ -372,7 +478,7 @@ public class ProjectLauncher
     {
         // Navigate up from current directory to find solution root
         var currentDir = Directory.GetCurrentDirectory();
-        
+
         // If we're in the launcher's bin directory, go up to solution root
         if (currentDir.Contains("PushDeliveredQueue.Launcher\\bin"))
         {

@@ -242,7 +242,7 @@
                     <div class="col-12">
                         <div class="card message-buffer-container">
                             <div class="card-header">
-                                <h5 class="card-title mb-0">Message Buffer (Latest 10 Messages)</h5>
+                                <h5 class="card-title mb-0">Message Buffer (All Messages)</h5>
                             </div>
                             <div class="card-body p-0">
                                 @if (MonitoringService.CurrentState.Buffer.Any())
@@ -258,7 +258,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach (var message in GetLatestMessages(10))
+                                                @foreach (var message in GetAllMessages())
                                                 {
                                                     <tr>
                                                         <td><code>@message.Id.ToString("N")[..8]...</code></td>
@@ -292,7 +292,7 @@
                     <div class="col-12">
                         <div class="card subscribers-container">
                             <div class="card-header">
-                                <h5 class="card-title mb-0">Subscribers (Top 5)</h5>
+                                <h5 class="card-title mb-0">Subscribers (All)</h5>
                             </div>
                             <div class="card-body p-0">
                                 @if (MonitoringService.CurrentState.Subscribers.Any())
@@ -309,7 +309,7 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @foreach (var subscriber in GetTopSubscribers(5))
+                                                @foreach (var subscriber in GetAllSubscribers())
                                                 {
                                                     <tr>
                                                         <td><code>@subscriber.Key.ToString("N")[..8]...</code></td>
@@ -416,16 +416,16 @@
         }
     }
 
-    private IEnumerable<MessageEnvelopeDto> GetLatestMessages(int count)
+    private IEnumerable<MessageEnvelopeDto> GetAllMessages()
     {
         if (MonitoringService.CurrentState?.Buffer == null) return Enumerable.Empty<MessageEnvelopeDto>();
-        return MonitoringService.CurrentState.Buffer.TakeLast(count);
+        return MonitoringService.CurrentState.Buffer;
     }
 
-    private IEnumerable<KeyValuePair<Guid, SubscriberStateDto>> GetTopSubscribers(int count)
+    private IEnumerable<KeyValuePair<Guid, SubscriberStateDto>> GetAllSubscribers()
     {
         if (MonitoringService.CurrentState?.Subscribers == null) return Enumerable.Empty<KeyValuePair<Guid, SubscriberStateDto>>();
-        return MonitoringService.CurrentState.Subscribers.Take(count);
+        return MonitoringService.CurrentState.Subscribers;
     }
 
     private async Task StartMonitoring() => await MonitoringService.StartMonitoringAsync();

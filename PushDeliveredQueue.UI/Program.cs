@@ -20,7 +20,7 @@ public class Program
         builder.Services.AddScoped<SubscribedMessageHandler>();
 
         // Add HTTP client for API communication
-        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? throw new InvalidOperationException("ApiSettings:BaseUrl configuration is missing from appsettings.json");
+        var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "http://localhost:5155/";
         builder.Services.AddHttpClient<QueueApiService>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
         // Add queue monitoring service
