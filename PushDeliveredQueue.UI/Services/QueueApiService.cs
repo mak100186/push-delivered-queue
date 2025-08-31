@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using PushDeliveredQueue.Sample.Dtos;
 
 namespace PushDeliveredQueue.UI.Services;

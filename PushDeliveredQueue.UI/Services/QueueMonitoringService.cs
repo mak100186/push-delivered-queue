@@ -1,4 +1,3 @@
-using System.Timers;
 using PushDeliveredQueue.Sample.Dtos;
 
 namespace PushDeliveredQueue.UI.Services;

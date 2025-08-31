@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using System.Diagnostics;
+
+using Microsoft.Extensions.Logging;
 
 namespace PushDeliveredQueue.Launcher;
 
@@ -36,10 +36,7 @@ public class ProjectLauncher
 
     public ProjectLauncher()
     {
-        var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder.AddConsole();
-        });
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         _logger = loggerFactory.CreateLogger<ProjectLauncher>();
     }
 

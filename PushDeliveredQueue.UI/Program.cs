@@ -1,7 +1,7 @@
 using PushDeliveredQueue.AspNetCore.DependencyInjection;
 using PushDeliveredQueue.Sample.Handlers;
-using PushDeliveredQueue.UI.Services;
 using PushDeliveredQueue.UI.Components;
+using PushDeliveredQueue.UI.Services;
 
 namespace PushDeliveredQueue.UI;
 public class Program
@@ -20,10 +20,7 @@ public class Program
 
         // Add HTTP client for API communication
         var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7001/";
-        builder.Services.AddHttpClient<QueueApiService>(client =>
-        {
-            client.BaseAddress = new Uri(apiBaseUrl);
-        });
+        builder.Services.AddHttpClient<QueueApiService>(client => client.BaseAddress = new Uri(apiBaseUrl));
 
         // Add queue monitoring service
         builder.Services.AddScoped<QueueMonitoringService>();

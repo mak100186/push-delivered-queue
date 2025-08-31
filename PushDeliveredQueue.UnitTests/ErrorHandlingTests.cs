@@ -163,17 +163,17 @@ public class ErrorHandlingTests : IDisposable
     }
 
     [Fact]
-    public void GetState_WithConcurrentAccess_ShouldNotThrow()
+    public async Task GetState_WithConcurrentAccess_ShouldNotThrow()
     {
         // Arrange
         var tasks = new List<Task>();
 
         // Act - Create multiple concurrent calls to GetState
-        for (int i = 0; i < 10; i++)
+        for (var i = 0; i < 10; i++)
         {
             tasks.Add(Task.Run(() =>
             {
-                for (int j = 0; j < 100; j++)
+                for (var j = 0; j < 100; j++)
                 {
                     _queue.GetState();
                 }
@@ -186,13 +186,13 @@ public class ErrorHandlingTests : IDisposable
     }
 
     [Fact]
-    public void Enqueue_WithConcurrentAccess_ShouldNotThrow()
+    public async Task Enqueue_WithConcurrentAccess_ShouldNotThrowAsync()
     {
         // Arrange
         var tasks = new List<Task<Guid>>();
 
         // Act - Create multiple concurrent enqueue operations
-        for (int i = 0; i < 100; i++)
+        for (var i = 0; i < 100; i++)
         {
             tasks.Add(Task.Run(() => _queue.Enqueue($"message {i}")));
         }
@@ -204,7 +204,7 @@ public class ErrorHandlingTests : IDisposable
     }
 
     [Fact]
-    public void Subscribe_WithConcurrentAccess_ShouldNotThrow()
+    public async Task Subscribe_WithConcurrentAccess_ShouldNotThrowAsync()
     {
         // Arrange
         var handler = new Mock<IQueueEventHandler>();
@@ -214,7 +214,7 @@ public class ErrorHandlingTests : IDisposable
         var tasks = new List<Task<Guid>>();
 
         // Act - Create multiple concurrent subscribe operations
-        for (int i = 0; i < 10; i++)
+        for (var i = 0; i < 10; i++)
         {
             tasks.Add(Task.Run(() => _queue.Subscribe(handler.Object)));
         }
