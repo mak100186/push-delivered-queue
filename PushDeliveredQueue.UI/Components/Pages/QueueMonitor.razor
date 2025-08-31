@@ -123,9 +123,9 @@
                     <div class="card-body">
                         @if (MonitoringService.CurrentState.Buffer.Any())
                         {
-                            <div class="table-responsive">
+                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                 <table class="table table-striped">
-                                    <thead>
+                                    <thead style="position: sticky; top: 0; background-color: white; z-index: 1;">
                                         <tr>
                                             <th>ID</th>
                                             <th>Payload</th>
@@ -173,9 +173,9 @@
                     <div class="card-body">
                         @if (MonitoringService.CurrentState.Subscribers.Any())
                         {
-                            <div class="table-responsive">
+                            <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
                                 <table class="table table-striped">
-                                    <thead>
+                                    <thead style="position: sticky; top: 0; background-color: white; z-index: 1;">
                                         <tr>
                                             <th>Subscriber ID</th>
                                             <th>Status</th>
