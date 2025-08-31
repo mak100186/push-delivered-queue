@@ -424,6 +424,7 @@ public class IntegrationTests : IDisposable
                .ReturnsAsync(PostMessageFailedBehavior.Commit);
 
         var subscriberId = queue.Subscribe(handler.Object);
+        await Task.Delay(100); // Give time for subscription to be processed
 
         var messageId = queue.Enqueue("test message");
         messageId.Should().NotBeEmpty();

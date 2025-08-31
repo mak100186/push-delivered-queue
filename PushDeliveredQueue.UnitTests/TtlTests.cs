@@ -84,30 +84,30 @@ public class TtlTests : IDisposable
     [Fact]
     public async Task PruneExpiredMessages_WithMixedExpiredAndValidMessages_ShouldRemoveOnlyExpired()
     {
-        // Arrange
-        var shortTtl = TimeSpan.FromMilliseconds(100);
+        // Arrange - Create a queue with a longer TTL to avoid interference
+        var ttl = TimeSpan.FromSeconds(1);
         _mockOptions.Setup(x => x.Value).Returns(new SubscribableQueueOptions
         {
-            Ttl = shortTtl,
+            Ttl = ttl,
             RetryCount = 3,
             DelayBetweenRetriesMs = 100
         });
 
         using var queue = new SubscribableQueue(_mockOptions.Object, _mockLogger.Object);
 
-        // Add initial messages
+        // Add messages that will expire
         queue.Enqueue("old message 1");
         queue.Enqueue("old message 2");
 
         // Wait for them to expire
-        await Task.Delay(150);
+        await Task.Delay(1200);
 
-        // Add new messages
+        // Add new messages that should not expire
         queue.Enqueue("new message 1");
         queue.Enqueue("new message 2");
 
-        // Wait for pruning
-        await Task.Delay(50);
+        // Wait a bit for processing
+        await Task.Delay(100);
 
         // Assert - Only new messages should remain
         var state = queue.GetState();

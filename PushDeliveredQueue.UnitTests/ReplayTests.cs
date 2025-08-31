@@ -221,14 +221,14 @@ public class ReplayTests : IDisposable
     public void ReplayFrom_WithValidMessage_ShouldUpdateCursorIndex()
     {
         // Arrange
+        // Setup handler to process messages BEFORE subscribing
+        _mockHandler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                   .ReturnsAsync(DeliveryResult.Ack);
+        
         var subscriberId = _queue.Subscribe(_mockHandler.Object);
         var message1 = _queue.Enqueue("message 1");
         var message2 = _queue.Enqueue("message 2");
         var message3 = _queue.Enqueue("message 3");
-
-        // Setup handler to process messages
-        _mockHandler.Setup(h => h.OnMessageReceiveAsync(It.IsAny<MessageEnvelope>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                   .ReturnsAsync(DeliveryResult.Ack);
 
         // Wait for some processing
         Thread.Sleep(100);
