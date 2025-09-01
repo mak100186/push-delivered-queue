@@ -24,8 +24,8 @@ public class Program
 
         try
         {
-            Log.Information("PushDeliveredQueue Launcher v1.0.0");
-            Log.Information("==================================");
+            Log.Information("[LCH] PushDeliveredQueue Launcher v1.0.0");
+            Log.Information("[LCH] ==================================");
 
             var launcher = new ProjectLauncher(configuration);
             var apiUrl = launcher.GetApiUrl();
@@ -47,30 +47,30 @@ public class Program
                 }
             }
 
-            Log.Information(noBuild ? "Mode: Running without building projects (--no-build)" : "Mode: Building and running projects");
-            Log.Information("Configuration: {Configuration}", buildConfiguration);
-            Log.Information(NewLine);
+            Log.Information("[LCH] {Mode}", noBuild ? "Mode: Running without building projects (--no-build)" : "Mode: Building and running projects");
+            Log.Information("[LCH] Configuration: {Configuration}", buildConfiguration);
+            Log.Information("[LCH] {NewLine}", NewLine);
 
             await launcher.StartAllProjectsAsync(noBuild, buildConfiguration);
 
-            Log.Information(NewLine);
-            Log.Information("All projects started successfully!");
-            Log.Information("URLs:");
-            Log.Information("   API: {ApiUrl}", apiUrl);
-            Log.Information("   UI:  {UiUrl}", uiUrl);
-            Log.Information(NewLine);
+            Log.Information("[LCH] {NewLine}", NewLine);
+            Log.Information("[LCH] All projects started successfully!");
+            Log.Information("[LCH] URLs:");
+            Log.Information("[LCH]    API: {ApiUrl}", apiUrl);
+            Log.Information("[LCH]    UI:  {UiUrl}", uiUrl);
+            Log.Information("[LCH] {NewLine}", NewLine);
             
             // Open browser with the URLs
             await launcher.OpenBrowserUrlsAsync(apiUrl, uiUrl);
             
-            Log.Information("Press Ctrl+C to stop all projects...");
+            Log.Information("[LCH] Press Ctrl+C to stop all projects...");
 
             // Keep the launcher running
             await Task.Delay(Timeout.Infinite);
         }
         catch (Exception ex)
         {
-            Log.Fatal(ex, "Application terminated unexpectedly");
+            Log.Fatal(ex, "[LCH] Application terminated unexpectedly");
             throw;
         }
         finally

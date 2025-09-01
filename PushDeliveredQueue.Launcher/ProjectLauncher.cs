@@ -56,7 +56,7 @@ public class ProjectLauncher
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start projects");
+            _logger.LogError(ex, "[LCH] Failed to start projects");
             await StopAllProjectsAsync();
             throw;
         }
@@ -70,7 +70,7 @@ public class ProjectLauncher
         // Check if port is occupied
         if (await IsPortOccupiedAsync(port))
         {
-            _logger.LogWarning("Port {Port} is occupied. Attempting to kill the process using it...", port, projectName);
+            _logger.LogWarning("[LCH] Port {Port} is occupied. Attempting to kill the process using it...", port, projectName);
 
             // Try to kill the process using the port
             await KillProcessUsingPortAsync(port, projectName);
@@ -82,17 +82,17 @@ public class ProjectLauncher
             if (await IsPortOccupiedAsync(port))
             {
                 var errorMessage = $"Port {port} is still occupied after attempting to kill the process. {projectName} cannot start. Please manually free the port and try again.";
-                _logger.LogError(errorMessage);
+                _logger.LogError("[LCH] {ErrorMessage}", errorMessage);
                 throw new InvalidOperationException(errorMessage);
             }
             else
             {
-                _logger.LogInformation("Port {Port} is now available for {ProjectName} after killing the previous process", port, projectName);
+                _logger.LogInformation("[LCH] Port {Port} is now available for {ProjectName} after killing the previous process", port, projectName);
             }
         }
         else
         {
-            _logger.LogInformation("Port {Port} is available for {ProjectName}", port, projectName);
+            _logger.LogInformation("[LCH] Port {Port} is available for {ProjectName}", port, projectName);
         }
     }
 
@@ -115,7 +115,7 @@ public class ProjectLauncher
     {
         try
         {
-            _logger.LogInformation("Attempting to kill process using port {Port} for {ProjectName}...", port, projectName);
+            _logger.LogInformation("[LCH] Attempting to kill process using port {Port} for {ProjectName}...", port, projectName);
 
             // Get the process ID using the port
             var processId = await GetProcessIdUsingPort(port);
@@ -125,21 +125,21 @@ public class ProjectLauncher
                 var process = Process.GetProcessById(processId.Value);
                 var processName = process.ProcessName;
 
-                _logger.LogInformation("Killing process {ProcessName} (PID: {ProcessId}) using port {Port}", processName, processId.Value, port);
+                _logger.LogInformation("[LCH] Killing process {ProcessName} (PID: {ProcessId}) using port {Port}", processName, processId.Value, port);
 
                 process.Kill();
                 await process.WaitForExitAsync();
 
-                _logger.LogInformation("Successfully killed process {ProcessName} (PID: {ProcessId})", processName, processId.Value);
+                _logger.LogInformation("[LCH] Successfully killed process {ProcessName} (PID: {ProcessId})", processName, processId.Value);
             }
             else
             {
-                _logger.LogWarning("Could not find process using port {Port}", port);
+                _logger.LogWarning("[LCH] Could not find process using port {Port}", port);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to kill process using port {Port}", port);
+            _logger.LogError(ex, "[LCH] Failed to kill process using port {Port}", port);
         }
     }
 
@@ -181,7 +181,7 @@ public class ProjectLauncher
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get process ID for port {Port}", port);
+            _logger.LogError(ex, "[LCH] Failed to get process ID for port {Port}", port);
         }
 
         return null;
@@ -189,7 +189,7 @@ public class ProjectLauncher
 
     private async Task BuildProjectAsync(string projectPath, string projectName, string configuration)
     {
-        _logger.LogInformation("Building {ProjectName} in {Configuration} configuration...", projectName, configuration);
+        _logger.LogInformation("[LCH] Building {ProjectName} in {Configuration} configuration...", projectName, configuration);
 
         // Get the solution directory
         var solutionDir = GetSolutionDirectory();
@@ -239,12 +239,12 @@ public class ProjectLauncher
             throw new InvalidOperationException($"{projectName} build failed with exit code {process.ExitCode}");
         }
 
-        _logger.LogInformation("{ProjectName} built successfully", projectName);
+        _logger.LogInformation("[LCH] {ProjectName} built successfully", projectName);
     }
 
     private async Task StartProjectAsync(string projectPath, string projectName, string urls, string configuration)
     {
-        _logger.LogInformation("Starting {ProjectName} on {Urls}...", projectName, urls);
+        _logger.LogInformation("[LCH] Starting {ProjectName} on {Urls}...", projectName, urls);
 
         // Get the solution directory
         var solutionDir = GetSolutionDirectory();
@@ -253,7 +253,7 @@ public class ProjectLauncher
         // Construct path to the compiled DLL
         var dllPath = Path.Combine(fullProjectPath, "bin", configuration, "net9.0", $"{projectPath}.dll");
 
-        _logger.LogInformation("DLL path: {DllPath}", dllPath);
+        _logger.LogInformation("[LCH] DLL path: {DllPath}", dllPath);
 
         // Check if DLL exists
         if (!File.Exists(dllPath))
@@ -313,12 +313,12 @@ public class ProjectLauncher
             throw new InvalidOperationException($"{projectName} exited with code {exitCode}. Check the logs above for details.");
         }
 
-        _logger.LogInformation("{ProjectName} started successfully", projectName);
+        _logger.LogInformation("[LCH] {ProjectName} started successfully", projectName);
     }
 
     private async Task StopAllProjectsAsync()
     {
-        _logger.LogInformation("Stopping all projects...");
+        _logger.LogInformation("[LCH] Stopping all projects...");
 
         foreach (var process in _processes)
         {
@@ -332,12 +332,12 @@ public class ProjectLauncher
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to stop process {ProcessId}", process.Id);
+                _logger.LogWarning(ex, "[LCH] Failed to stop process {ProcessId}", process.Id);
             }
         }
 
         _processes.Clear();
-        _logger.LogInformation("All projects stopped");
+        _logger.LogInformation("[LCH] All projects stopped");
     }
 
     public string GetApiUrl()
@@ -377,7 +377,7 @@ public class ProjectLauncher
     {
         try
         {
-            _logger.LogInformation("Opening browser with application URLs...");
+            _logger.LogInformation("[LCH] Opening browser with application URLs...");
             
             // Wait a moment for services to fully start
             await Task.Delay(2000);
@@ -390,11 +390,11 @@ public class ProjectLauncher
                     FileName = apiUrl,
                     UseShellExecute = true
                 });
-                _logger.LogInformation("Opened API/Swagger in browser: {ApiUrl}", apiUrl);
+                _logger.LogInformation("[LCH] Opened API/Swagger in browser: {ApiUrl}", apiUrl);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to open API URL in browser: {ApiUrl}", apiUrl);
+                _logger.LogWarning(ex, "[LCH] Failed to open API URL in browser: {ApiUrl}", apiUrl);
             }
             
             // Wait a moment between opening tabs
@@ -408,16 +408,16 @@ public class ProjectLauncher
                     FileName = uiUrl,
                     UseShellExecute = true
                 });
-                _logger.LogInformation("Opened UI in browser: {UiUrl}", uiUrl);
+                _logger.LogInformation("[LCH] Opened UI in browser: {UiUrl}", uiUrl);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to open UI URL in browser: {UiUrl}", uiUrl);
+                _logger.LogWarning(ex, "[LCH] Failed to open UI URL in browser: {UiUrl}", uiUrl);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to open browser URLs");
+            _logger.LogError(ex, "[LCH] Failed to open browser URLs");
         }
     }
 }
